@@ -11,7 +11,30 @@
 
 namespace {
 
+// ============================================================================
+// Moderni, sodri spalvų paletė (be išblukusių pilkų tonų)
+// ============================================================================
+const sf::Color COL_PANEL_BG(11, 17, 32, 238);
+const sf::Color COL_PANEL_INNER(20, 30, 52, 220);
+const sf::Color COL_BORDER_SUBTLE(72, 102, 148, 175);
+const sf::Color COL_EMERALD(0, 214, 125);
+const sf::Color COL_GOLD(255, 196, 36);
+const sf::Color COL_CYAN(56, 189, 248);
+const sf::Color COL_CORAL(244, 63, 94);
+const sf::Color COL_TEXT_MAIN(244, 248, 255);
+const sf::Color COL_TEXT_MUTED(158, 180, 214);
+
 std::string formatDelayTime(float totalSeconds) {
+    const int secs = std::max(0, static_cast<int>(totalSeconds));
+    const int mins = secs / 60;
+    const int remSecs = secs % 60;
+    std::ostringstream oss;
+    oss << std::setfill('0') << std::setw(2) << mins << ":"
+        << std::setfill('0') << std::setw(2) << remSecs;
+    return oss.str();
+}
+
+std::string formatDelayVerbose(float totalSeconds) {
     const int secs = std::max(0, static_cast<int>(totalSeconds));
     const int mins = secs / 60;
     const int remSecs = secs % 60;
@@ -29,50 +52,160 @@ std::string formatDistance(float km, float targetKm) {
 
 sf::Color getDelayColor(float delaySeconds, float maxDelayMinutes) {
     const float ratio = (delaySeconds / 60.0f) / std::max(1.0f, maxDelayMinutes);
-    if (ratio < 0.50f) return sf::Color(88, 214, 141);
-    if (ratio < 0.75f) return sf::Color(244, 208, 63);
-    if (ratio < 0.90f) return sf::Color(235, 152, 78);
-    return sf::Color(231, 76, 60);
+    if (ratio < 0.50f) return COL_EMERALD;
+    if (ratio < 0.75f) return COL_GOLD;
+    if (ratio < 0.90f) return sf::Color(251, 146, 60);
+    return COL_CORAL;
 }
 
-void drawPanelBox(sf::RenderWindow& window, sf::Vector2f pos, sf::Vector2f size, sf::Color outline = sf::Color(68, 86, 114)) {
-    sf::RectangleShape shadow(size);
-    shadow.setPosition({pos.x + 5.0f, pos.y + 6.0f});
-    shadow.setFillColor(sf::Color(0, 0, 0, 90));
+sf::Color brightenColor(sf::Color c, int delta) {
+    return sf::Color(
+        static_cast<std::uint8_t>(std::clamp(static_cast<int>(c.r) + delta, 0, 255)),
+        static_cast<std::uint8_t>(std::clamp(static_cast<int>(c.g) + delta, 0, 255)),
+        static_cast<std::uint8_t>(std::clamp(static_cast<int>(c.b) + delta, 0, 255)),
+        c.a
+    );
+}
+
+// Sukuria suapvalinto stačiakampio figūrą (moderniai UI išvaizdai)
+sf::ConvexShape makeRoundedRect(sf::Vector2f pos, sf::Vector2f size, float radius, int cornerSegments = 6) {
+    const float r = std::min(radius, std::min(size.x, size.y) * 0.5f);
+    sf::ConvexShape shape;
+    const std::size_t totalPoints = static_cast<std::size_t>(cornerSegments * 4);
+    shape.setPointCount(totalPoints);
+
+    constexpr float PI = 3.14159265f;
+    const sf::Vector2f centers[4] = {
+        {pos.x + size.x - r, pos.y + r},          // Viršus-dešinė
+        {pos.x + size.x - r, pos.y + size.y - r}, // Apačia-dešinė
+        {pos.x + r,          pos.y + size.y - r}, // Apačia-kairė
+        {pos.x + r,          pos.y + r}           // Viršus-kairė
+    };
+    const float startAngles[4] = {-PI * 0.5f, 0.0f, PI * 0.5f, PI};
+
+    std::size_t idx = 0;
+    for (int corner = 0; corner < 4; ++corner) {
+        for (int s = 0; s < cornerSegments; ++s) {
+            const float frac = static_cast<float>(s) / static_cast<float>(cornerSegments - 1);
+            const float angle = startAngles[corner] + frac * (PI * 0.5f);
+            shape.setPoint(idx++, {
+                centers[corner].x + std::cos(angle) * r,
+                centers[corner].y + std::sin(angle) * r
+            });
+        }
+    }
+    return shape;
+}
+
+void drawRoundedRect(sf::RenderWindow& window,
+                     sf::Vector2f pos,
+                     sf::Vector2f size,
+                     float radius,
+                     sf::Color fill,
+                     float outlineThickness = 0.0f,
+                     sf::Color outlineColor = sf::Color::Transparent) {
+    sf::ConvexShape shape = makeRoundedRect(pos, size, radius);
+    shape.setFillColor(fill);
+    if (outlineThickness > 0.0f) {
+        shape.setOutlineThickness(outlineThickness);
+        shape.setOutlineColor(outlineColor);
+    }
+    window.draw(shape);
+}
+
+void drawShadowedText(sf::RenderWindow& window,
+                      const sf::Font& font,
+                      const std::string& text,
+                      unsigned int fontSize,
+                      sf::Color color,
+                      sf::Vector2f pos,
+                      bool bold = false) {
+    sf::Text shadow(font, toSfString(text), fontSize);
+    if (bold) shadow.setStyle(sf::Text::Bold);
+    shadow.setFillColor(sf::Color(0, 0, 0, 155));
+    shadow.setPosition({pos.x + 2.0f, pos.y + 2.0f});
     window.draw(shadow);
 
-    sf::RectangleShape panel(size);
-    panel.setPosition(pos);
-    panel.setFillColor(sf::Color(18, 24, 34, 232));
-    panel.setOutlineThickness(2.0f);
-    panel.setOutlineColor(outline);
-    window.draw(panel);
+    sf::Text mainText(font, toSfString(text), fontSize);
+    if (bold) mainText.setStyle(sf::Text::Bold);
+    mainText.setFillColor(color);
+    mainText.setPosition(pos);
+    window.draw(mainText);
 }
 
+void drawShadowedCenteredText(sf::RenderWindow& window,
+                              const sf::Font& font,
+                              const std::string& text,
+                              unsigned int fontSize,
+                              sf::Color color,
+                              sf::Vector2f centerPos,
+                              bool bold = false) {
+    sf::Text shadow(font, toSfString(text), fontSize);
+    if (bold) shadow.setStyle(sf::Text::Bold);
+    shadow.setFillColor(sf::Color(0, 0, 0, 175));
+    const sf::FloatRect b = shadow.getLocalBounds();
+    shadow.setOrigin({b.position.x + b.size.x * 0.5f, b.position.y + b.size.y * 0.5f});
+    shadow.setPosition({centerPos.x + 2.0f, centerPos.y + 2.5f});
+    window.draw(shadow);
+
+    sf::Text mainText(font, toSfString(text), fontSize);
+    if (bold) mainText.setStyle(sf::Text::Bold);
+    mainText.setFillColor(color);
+    mainText.setOrigin({b.position.x + b.size.x * 0.5f, b.position.y + b.size.y * 0.5f});
+    mainText.setPosition(centerPos);
+    window.draw(mainText);
+}
+
+// Moderni suapvalinta stiklinė kortelė su šešėliu ir spalvota viršutine akcento juosta
+void drawGlassPanel(sf::RenderWindow& window,
+                    sf::Vector2f pos,
+                    sf::Vector2f size,
+                    sf::Color accentColor = COL_CYAN) {
+    // Minkštas šešėlis
+    drawRoundedRect(window, {pos.x + 6.0f, pos.y + 8.0f}, size, 16.0f, sf::Color(0, 0, 0, 125));
+
+    // Pagrindinis tamsus stiklinis fonas
+    drawRoundedRect(window, pos, size, 16.0f, COL_PANEL_BG, 1.8f, COL_BORDER_SUBTLE);
+
+    // Subtilus viršutinis vidinis švytėjimas
+    drawRoundedRect(window, {pos.x + 12.0f, pos.y + 2.0f}, {size.x - 24.0f, 4.0f}, 2.0f, accentColor);
+}
+
+// Modernus 3D efekto suapvalintas mygtukas su hover paryškinimu
 void drawButton(sf::RenderWindow& window,
                 const sf::Font& font,
                 const ButtonRect& button,
                 sf::Vector2f mousePos) {
     const bool hovered = button.bounds.contains(mousePos);
+    const float liftY = hovered ? -2.0f : 0.0f;
+    const sf::Vector2f pos = {button.bounds.position.x, button.bounds.position.y + liftY};
+    const sf::Vector2f size = button.bounds.size;
 
-    sf::RectangleShape rect(button.bounds.size);
-    rect.setPosition(button.bounds.position);
-    rect.setFillColor(hovered
-        ? sf::Color(
-            static_cast<std::uint8_t>(std::min(255, static_cast<int>(button.baseColor.r) + 28)),
-            static_cast<std::uint8_t>(std::min(255, static_cast<int>(button.baseColor.g) + 28)),
-            static_cast<std::uint8_t>(std::min(255, static_cast<int>(button.baseColor.b) + 28))
-        )
-        : button.baseColor);
-    rect.setOutlineThickness(hovered ? 3.0f : 2.0f);
-    rect.setOutlineColor(hovered ? sf::Color(255, 255, 255) : sf::Color(210, 220, 235, 180));
-    window.draw(rect);
+    // Apatinis 3D gylio šešėlis
+    drawRoundedRect(window, {pos.x, pos.y + 5.0f}, size, 12.0f,
+                    brightenColor(button.baseColor, -55));
 
-    const sf::Vector2f center = {
-        button.bounds.position.x + button.bounds.size.x * 0.5f,
-        button.bounds.position.y + button.bounds.size.y * 0.5f
-    };
-    drawCenteredText(window, font, button.label, 19, sf::Color::White, center);
+    // Pagrindinis mygtuko kūnas
+    const sf::Color fill = hovered ? brightenColor(button.baseColor, 26) : button.baseColor;
+    const sf::Color border = hovered ? sf::Color(255, 255, 255, 235) : brightenColor(button.baseColor, 48);
+    drawRoundedRect(window, pos, size, 12.0f, fill, hovered ? 2.5f : 1.5f, border);
+
+    // Viršutinė blizgesio juostelė
+    drawRoundedRect(window, {pos.x + 8.0f, pos.y + 3.0f}, {size.x - 16.0f, size.y * 0.36f}, 8.0f,
+                    sf::Color(255, 255, 255, hovered ? 42 : 26));
+
+    const sf::Vector2f center = {pos.x + size.x * 0.5f, pos.y + size.y * 0.5f};
+    drawShadowedCenteredText(window, font, button.label, 18, sf::Color::White, center, true);
+}
+
+void drawKeyCap(sf::RenderWindow& window, const sf::Font& font, sf::Vector2f pos, float width, const std::string& keyLabel, const std::string& desc) {
+    drawRoundedRect(window, pos, {width, 22.0f}, 6.0f, sf::Color(30, 44, 72), 1.2f, sf::Color(102, 136, 186));
+    drawCenteredText(window, font, keyLabel, 11, COL_GOLD, {pos.x + width * 0.5f, pos.y + 11.0f});
+
+    sf::Text d(font, toSfString(desc), 12);
+    d.setFillColor(COL_TEXT_MUTED);
+    d.setPosition({pos.x + width + 8.0f, pos.y + 3.0f});
+    window.draw(d);
 }
 
 void drawSpriteFit(sf::RenderWindow& window,
@@ -94,38 +227,33 @@ void drawSpriteFit(sf::RenderWindow& window,
 }
 
 void drawBlinkers(sf::RenderWindow& window, sf::Vector2f pos, sf::Vector2f size, bool blinkLeft, bool blinkRight) {
-    if (blinkLeft) {
-        sf::CircleShape b1(7.0f);
-        b1.setPosition({pos.x - 5.0f, pos.y + 8.0f});
-        b1.setFillColor(sf::Color(255, 175, 20));
-        window.draw(b1);
+    auto drawGlowBlinker = [&](sf::Vector2f p) {
+        sf::CircleShape glow(12.0f);
+        glow.setOrigin({12.0f, 12.0f});
+        glow.setPosition(p);
+        glow.setFillColor(sf::Color(255, 165, 0, 105));
+        window.draw(glow);
 
-        sf::CircleShape b2(7.0f);
-        b2.setPosition({pos.x - 5.0f, pos.y + size.y - 20.0f});
-        b2.setFillColor(sf::Color(255, 175, 20));
-        window.draw(b2);
+        sf::CircleShape core(6.0f);
+        core.setOrigin({6.0f, 6.0f});
+        core.setPosition(p);
+        core.setFillColor(sf::Color(255, 200, 40));
+        window.draw(core);
+    };
+
+    if (blinkLeft) {
+        drawGlowBlinker({pos.x + 1.0f, pos.y + 14.0f});
+        drawGlowBlinker({pos.x + 1.0f, pos.y + size.y - 14.0f});
     }
     if (blinkRight) {
-        sf::CircleShape b1(7.0f);
-        b1.setPosition({pos.x + size.x - 9.0f, pos.y + 8.0f});
-        b1.setFillColor(sf::Color(255, 175, 20));
-        window.draw(b1);
-
-        sf::CircleShape b2(7.0f);
-        b2.setPosition({pos.x + size.x - 9.0f, pos.y + size.y - 20.0f});
-        b2.setFillColor(sf::Color(255, 175, 20));
-        window.draw(b2);
+        drawGlowBlinker({pos.x + size.x - 1.0f, pos.y + 14.0f});
+        drawGlowBlinker({pos.x + size.x - 1.0f, pos.y + size.y - 14.0f});
     }
 }
 
 void drawFallbackRect(sf::RenderWindow& window, sf::Vector2f pos, sf::Vector2f size, sf::Color color, std::uint8_t alpha = 255) {
     color.a = alpha;
-    sf::RectangleShape rect(size);
-    rect.setPosition(pos);
-    rect.setFillColor(color);
-    rect.setOutlineThickness(2.0f);
-    rect.setOutlineColor(sf::Color(20, 24, 30, alpha));
-    window.draw(rect);
+    drawRoundedRect(window, pos, size, 10.0f, color, 2.0f, sf::Color(15, 20, 30, alpha));
 }
 
 std::string wrapTextToWidth(const sf::Font& font, const std::string& text, unsigned int fontSize, float maxWidth) {
@@ -159,30 +287,32 @@ void drawCarSpeechBubble(sf::RenderWindow& window, const GameData& game, const G
     }
 
     const float fadeRatio = std::clamp(game.statusMessageTimer / 0.35f, 0.0f, 1.0f);
-    const std::uint8_t bgAlpha = static_cast<std::uint8_t>(242.0f * fadeRatio);
+    const std::uint8_t bgAlpha = static_cast<std::uint8_t>(248.0f * fadeRatio);
     const std::uint8_t fgAlpha = static_cast<std::uint8_t>(255.0f * fadeRatio);
 
     const std::string wrapped = wrapTextToWidth(res.font, game.statusMessage, 14, 215.0f);
 
-    sf::Text speakerText(res.font, toSfString("Artas:"), 14);
+    sf::Text speakerText(res.font, toSfString("DĖSTYTOJAS"), 11);
     speakerText.setStyle(sf::Text::Bold);
-    speakerText.setFillColor(sf::Color(22, 118, 66, fgAlpha));
+    speakerText.setFillColor(sf::Color(255, 255, 255, fgAlpha));
 
     sf::Text bodyText(res.font, toSfString(wrapped), 14);
-    bodyText.setFillColor(sf::Color(22, 28, 38, fgAlpha));
+    bodyText.setFillColor(sf::Color(15, 23, 42, fgAlpha));
 
     const sf::FloatRect speakerBounds = speakerText.getLocalBounds();
     const sf::FloatRect bodyBounds = bodyText.getLocalBounds();
 
-    const float avatarSize = res.hasArtasFaces ? 44.0f : 0.0f;
-    const float avatarGap = res.hasArtasFaces ? 10.0f : 0.0f;
-    const float padX = 12.0f;
-    const float padY = 10.0f;
-    const float gapY = 5.0f;
+    const float avatarSize = res.hasLecturerFaces ? 46.0f : 0.0f;
+    const float avatarGap = res.hasLecturerFaces ? 10.0f : 0.0f;
+    const float padX = 14.0f;
+    const float padY = 12.0f;
+    const float pillH = 20.0f;
+    const float gapY = 7.0f;
 
-    const float textW = std::max(speakerBounds.size.x, bodyBounds.size.x);
-    const float textH = speakerBounds.size.y + gapY + bodyBounds.size.y + 6.0f;
-    const float bubbleW = std::max(165.0f, avatarSize + avatarGap + textW + padX * 2.0f);
+    const float pillW = speakerBounds.size.x + 16.0f;
+    const float textW = std::max(pillW, bodyBounds.size.x);
+    const float textH = pillH + gapY + bodyBounds.size.y + 4.0f;
+    const float bubbleW = std::max(185.0f, avatarSize + avatarGap + textW + padX * 2.0f);
     const float bubbleH = std::max(avatarSize, textH) + padY * 2.0f;
 
     const float carCenterX = game.player.position.x + game.player.size.x * 0.5f;
@@ -196,10 +326,10 @@ void drawCarSpeechBubble(sf::RenderWindow& window, const GameData& game, const G
         : (game.player.position.x + game.player.size.x + tailGap);
     float bubbleY = carBackSeatY - bubbleH * 0.55f;
 
-    if (placeLeft && bubbleX < 332.0f && bubbleY < 305.0f) {
+    if (placeLeft && bubbleX < 332.0f && bubbleY < 312.0f) {
         placeLeft = false;
         bubbleX = game.player.position.x + game.player.size.x + tailGap;
-    } else if (!placeLeft && (bubbleX + bubbleW) > 948.0f && bubbleY < 335.0f) {
+    } else if (!placeLeft && (bubbleX + bubbleW) > 948.0f && bubbleY < 342.0f) {
         placeLeft = true;
         bubbleX = game.player.position.x - tailGap - bubbleW;
     }
@@ -207,50 +337,58 @@ void drawCarSpeechBubble(sf::RenderWindow& window, const GameData& game, const G
     bubbleX = std::clamp(bubbleX, 16.0f, static_cast<float>(WINDOW_WIDTH) - bubbleW - 16.0f);
     bubbleY = std::clamp(bubbleY, 16.0f, static_cast<float>(WINDOW_HEIGHT) - bubbleH - 16.0f);
 
+    // Šešėlis po burbulu
+    drawRoundedRect(window, {bubbleX + 4.0f, bubbleY + 5.0f}, {bubbleW, bubbleH}, 14.0f,
+                    sf::Color(0, 0, 0, static_cast<std::uint8_t>(95.0f * fadeRatio)));
+
+    // Kalbos burbulo uodegėlė
     sf::ConvexShape tail;
     tail.setPointCount(3);
-    const float tailMidY = std::clamp(carBackSeatY, bubbleY + 14.0f, bubbleY + bubbleH - 14.0f);
+    const float tailMidY = std::clamp(carBackSeatY, bubbleY + 18.0f, bubbleY + bubbleH - 18.0f);
     if (placeLeft) {
-        tail.setPoint(0, {bubbleX + bubbleW - 1.0f, tailMidY - 8.0f});
-        tail.setPoint(1, {bubbleX + bubbleW - 1.0f, tailMidY + 8.0f});
+        tail.setPoint(0, {bubbleX + bubbleW - 2.0f, tailMidY - 8.0f});
+        tail.setPoint(1, {bubbleX + bubbleW - 2.0f, tailMidY + 8.0f});
         tail.setPoint(2, {game.player.position.x - 2.0f, carBackSeatY});
     } else {
-        tail.setPoint(0, {bubbleX + 1.0f, tailMidY - 8.0f});
-        tail.setPoint(1, {bubbleX + 1.0f, tailMidY + 8.0f});
+        tail.setPoint(0, {bubbleX + 2.0f, tailMidY - 8.0f});
+        tail.setPoint(1, {bubbleX + 2.0f, tailMidY + 8.0f});
         tail.setPoint(2, {game.player.position.x + game.player.size.x + 2.0f, carBackSeatY});
     }
-    tail.setFillColor(sf::Color(250, 252, 255, bgAlpha));
+    tail.setFillColor(sf::Color(248, 250, 255, bgAlpha));
     tail.setOutlineThickness(2.0f);
-    tail.setOutlineColor(sf::Color(28, 38, 52, bgAlpha));
-
-    sf::RectangleShape bubble({bubbleW, bubbleH});
-    bubble.setPosition({bubbleX, bubbleY});
-    bubble.setFillColor(sf::Color(250, 252, 255, bgAlpha));
-    bubble.setOutlineThickness(2.0f);
-    bubble.setOutlineColor(sf::Color(28, 38, 52, bgAlpha));
-
+    tail.setOutlineColor(sf::Color(15, 23, 42, bgAlpha));
     window.draw(tail);
-    window.draw(bubble);
 
-    sf::RectangleShape seamCover({4.0f, 14.0f});
-    seamCover.setPosition({placeLeft ? (bubbleX + bubbleW - 3.0f) : (bubbleX - 1.0f), tailMidY - 7.0f});
-    seamCover.setFillColor(sf::Color(250, 252, 255, bgAlpha));
+    // Suapvalintas burbulo kūnas
+    drawRoundedRect(window, {bubbleX, bubbleY}, {bubbleW, bubbleH}, 14.0f,
+                    sf::Color(248, 250, 255, bgAlpha), 2.0f, sf::Color(15, 23, 42, bgAlpha));
+
+    // Vientisas uodegėlės sujungimas
+    sf::RectangleShape seamCover({5.0f, 14.0f});
+    seamCover.setPosition({placeLeft ? (bubbleX + bubbleW - 4.0f) : (bubbleX - 1.0f), tailMidY - 7.0f});
+    seamCover.setFillColor(sf::Color(248, 250, 255, bgAlpha));
     window.draw(seamCover);
 
-    // Arto portretas pagal likusią kantrybę
-    if (res.hasArtasFaces) {
+    // Dėstytojo portretas pagal nuotaiką
+    if (res.hasLecturerFaces) {
         const sf::Texture& face = (game.player.lives >= 3)
-            ? res.artasHappy
-            : (game.player.lives == 2 ? res.artasNeutral : res.artasAngry);
+            ? res.lecturerHappy
+            : (game.player.lives == 2 ? res.lecturerNeutral : res.lecturerAngry);
         drawSpriteFit(window, face, {bubbleX + padX, bubbleY + (bubbleH - avatarSize) * 0.5f},
                       {avatarSize, avatarSize}, fgAlpha);
     }
 
+    // Spalvota „DĖSTYTOJAS“ žymeklio kapsulė
     const float textStartX = bubbleX + padX + avatarSize + avatarGap;
-    speakerText.setPosition({textStartX - speakerBounds.position.x,
-                             bubbleY + padY - speakerBounds.position.y});
+    const sf::Color badgeCol = (game.player.lives >= 3)
+        ? sf::Color(0, 178, 102, fgAlpha)
+        : (game.player.lives == 2 ? sf::Color(217, 119, 6, fgAlpha) : sf::Color(225, 29, 72, fgAlpha));
+    drawRoundedRect(window, {textStartX, bubbleY + padY}, {pillW, pillH}, 7.0f, badgeCol);
+
+    speakerText.setPosition({textStartX + 8.0f - speakerBounds.position.x,
+                             bubbleY + padY + (pillH - speakerBounds.size.y) * 0.5f - speakerBounds.position.y});
     bodyText.setPosition({textStartX - bodyBounds.position.x,
-                          bubbleY + padY + speakerBounds.size.y + gapY - bodyBounds.position.y});
+                          bubbleY + padY + pillH + gapY - bodyBounds.position.y});
 
     window.draw(speakerText);
     window.draw(bodyText);
@@ -260,32 +398,42 @@ void drawMuteButton(sf::RenderWindow& window, const GameData& game, const sf::Fo
     const sf::FloatRect bounds = getMuteButtonBounds();
     const bool hovered = bounds.contains(mousePos);
 
-    sf::RectangleShape box(bounds.size);
-    box.setPosition(bounds.position);
-    box.setFillColor(game.soundMuted ? sf::Color(115, 42, 46, 225) : sf::Color(26, 40, 58, 225));
-    box.setOutlineThickness(hovered ? 2.5f : 1.5f);
-    box.setOutlineColor(hovered ? sf::Color::White : sf::Color(110, 130, 160));
-    window.draw(box);
+    const sf::Color bg = game.soundMuted ? sf::Color(159, 18, 57, 235) : sf::Color(15, 23, 42, 235);
+    const sf::Color border = hovered ? sf::Color::White : (game.soundMuted ? COL_CORAL : COL_EMERALD);
+    drawRoundedRect(window, bounds.position, bounds.size, 10.0f, bg, hovered ? 2.2f : 1.5f, border);
 
     const std::string label = game.soundMuted ? "Garsas: OFF (M)" : "Garsas: ON (M)";
-    drawCenteredText(window, font, label, 13, sf::Color(230, 238, 248),
+    drawCenteredText(window, font, label, 13, COL_TEXT_MAIN,
                      {bounds.position.x + bounds.size.x * 0.5f, bounds.position.y + bounds.size.y * 0.5f});
 }
 
 void renderMenuOverlay(sf::RenderWindow& window, const GameResources& res, sf::Vector2f mousePos) {
     sf::RectangleShape dim({static_cast<float>(WINDOW_WIDTH), static_cast<float>(WINDOW_HEIGHT)});
-    dim.setFillColor(sf::Color(8, 12, 20, 175));
+    dim.setFillColor(sf::Color(6, 10, 22, 175));
     window.draw(dim);
 
-    drawPanelBox(window, {310.0f, 80.0f}, {660.0f, 545.0f}, sf::Color(88, 135, 195));
+    drawGlassPanel(window, {300.0f, 68.0f}, {680.0f, 558.0f}, COL_EMERALD);
 
-    if (res.hasArtasFaces) {
-        drawSpriteFit(window, res.artasHappy, {598.0f, 98.0f}, {84.0f, 84.0f});
+    // Žėrintis apskritimas aplink dėstytojo portretą
+    if (res.hasLecturerFaces) {
+        sf::CircleShape ring(48.0f);
+        ring.setOrigin({48.0f, 48.0f});
+        ring.setPosition({640.0f, 134.0f});
+        ring.setFillColor(sf::Color(0, 214, 125, 45));
+        ring.setOutlineThickness(2.5f);
+        ring.setOutlineColor(COL_EMERALD);
+        window.draw(ring);
+
+        drawSpriteFit(window, res.lecturerHappy, {598.0f, 92.0f}, {84.0f, 84.0f});
     }
 
-    drawCenteredText(window, res.font, "20 MINUČIŲ IKI PASKAITOS", 34, sf::Color(255, 214, 84), {640.0f, 216.0f});
-    drawCenteredText(window, res.font, "Esi dėstytojo Arto pavežėjas – nuvežk jį į Saulėtekį laiku!", 17, sf::Color(175, 212, 255), {640.0f, 260.0f});
-    drawCenteredText(window, res.font, "Valdymas: WASD / Rodyklės   |   Pauzė: P / Esc   |   Garsas: M", 14, sf::Color(160, 176, 200), {640.0f, 300.0f});
+    drawShadowedCenteredText(window, res.font, "20 MINUČIŲ IKI PASKAITOS", 34, COL_GOLD, {640.0f, 212.0f}, true);
+
+    // Spalvota paantraštės kapsulė
+    drawRoundedRect(window, {375.0f, 240.0f}, {530.0f, 34.0f}, 17.0f, sf::Color(0, 214, 125, 34), 1.5f, sf::Color(0, 214, 125, 160));
+    drawCenteredText(window, res.font, "Esi dėstytojo pavežėjas – nuvežk jį į Saulėtekį laiku!", 15, sf::Color(167, 243, 208), {640.0f, 257.0f});
+
+    drawCenteredText(window, res.font, "WASD / Rodyklės – vairuoti   |   P / Esc – pauzė   |   M – garsas", 13, COL_TEXT_MUTED, {640.0f, 304.0f});
 
     for (const ButtonRect& btn : getScreenButtons(GameState::Menu)) {
         drawButton(window, res.font, btn, mousePos);
@@ -294,41 +442,44 @@ void renderMenuOverlay(sf::RenderWindow& window, const GameResources& res, sf::V
 
 void renderRouteSelectOverlay(sf::RenderWindow& window, const GameResources& res, sf::Vector2f mousePos) {
     sf::RectangleShape dim({static_cast<float>(WINDOW_WIDTH), static_cast<float>(WINDOW_HEIGHT)});
-    dim.setFillColor(sf::Color(8, 12, 20, 185));
+    dim.setFillColor(sf::Color(6, 10, 22, 185));
     window.draw(dim);
 
-    drawPanelBox(window, {295.0f, 85.0f}, {690.0f, 535.0f});
-    drawCenteredText(window, res.font, "PASIRINK MARŠRUTĄ", 32, sf::Color(255, 214, 84), {640.0f, 135.0f});
-    drawCenteredText(window, res.font, "Spausk ant maršruto arba 1 / 2 / 3 klaviatūroje", 15, sf::Color(175, 192, 215), {640.0f, 172.0f});
+    drawGlassPanel(window, {285.0f, 80.0f}, {710.0f, 545.0f}, COL_CYAN);
+    drawShadowedCenteredText(window, res.font, "PASIRINK MARŠRUTĄ", 32, COL_GOLD, {640.0f, 130.0f}, true);
+    drawCenteredText(window, res.font, "Spausk ant kortelės arba 1 / 2 / 3 klaviatūroje", 14, COL_TEXT_MUTED, {640.0f, 168.0f});
 
     const std::vector<ButtonRect> buttons = getScreenButtons(GameState::RouteSelect);
     for (const ButtonRect& btn : buttons) {
         if (btn.actionId >= 10 && btn.actionId <= 12) {
             const RouteConfig route = getRouteConfig(btn.actionId - 10);
             const bool hovered = btn.bounds.contains(mousePos);
+            const float liftY = hovered ? -3.0f : 0.0f;
+            const sf::Vector2f pos = {btn.bounds.position.x, btn.bounds.position.y + liftY};
 
-            sf::RectangleShape card(btn.bounds.size);
-            card.setPosition(btn.bounds.position);
-            card.setFillColor(hovered
-                ? sf::Color(
-                    static_cast<std::uint8_t>(std::min(255, static_cast<int>(btn.baseColor.r) + 25)),
-                    static_cast<std::uint8_t>(std::min(255, static_cast<int>(btn.baseColor.g) + 25)),
-                    static_cast<std::uint8_t>(std::min(255, static_cast<int>(btn.baseColor.b) + 25))
-                )
-                : btn.baseColor);
-            card.setOutlineThickness(hovered ? 3.0f : 2.0f);
-            card.setOutlineColor(hovered ? sf::Color::White : sf::Color(220, 230, 245, 180));
-            window.draw(card);
+            // Kortelės šešėlis
+            drawRoundedRect(window, {pos.x, pos.y + 5.0f}, btn.bounds.size, 14.0f, brightenColor(btn.baseColor, -65));
 
-            sf::Text title(res.font, toSfString(btn.label + "  [" + route.difficulty + "]"), 20);
-            title.setStyle(sf::Text::Bold);
-            title.setFillColor(sf::Color::White);
-            title.setPosition({btn.bounds.position.x + 22.0f, btn.bounds.position.y + 14.0f});
-            window.draw(title);
+            // Pagrindinė kortelė
+            const sf::Color fill = hovered ? brightenColor(btn.baseColor, 22) : btn.baseColor;
+            drawRoundedRect(window, pos, btn.bounds.size, 14.0f, fill, hovered ? 2.5f : 1.5f,
+                            hovered ? sf::Color::White : brightenColor(btn.baseColor, 55));
 
-            sf::Text desc(res.font, toSfString(route.description), 15);
-            desc.setFillColor(sf::Color(235, 242, 250));
-            desc.setPosition({btn.bounds.position.x + 22.0f, btn.bounds.position.y + 48.0f});
+            // Viršutinis blizgesys
+            drawRoundedRect(window, {pos.x + 10.0f, pos.y + 3.0f}, {btn.bounds.size.x - 20.0f, 26.0f}, 8.0f,
+                            sf::Color(255, 255, 255, hovered ? 36 : 22));
+
+            drawShadowedText(window, res.font, btn.label, 20, sf::Color::White, {pos.x + 22.0f, pos.y + 14.0f}, true);
+
+            // Sunkumo ženkliukas dešinėje
+            drawRoundedRect(window, {pos.x + btn.bounds.size.x - 165.0f, pos.y + 14.0f}, {145.0f, 26.0f}, 13.0f,
+                            sf::Color(10, 16, 28, 155));
+            drawCenteredText(window, res.font, route.difficulty, 12, COL_GOLD,
+                             {pos.x + btn.bounds.size.x - 92.5f, pos.y + 27.0f});
+
+            sf::Text desc(res.font, toSfString(route.description), 14);
+            desc.setFillColor(sf::Color(238, 245, 255));
+            desc.setPosition({pos.x + 22.0f, pos.y + 50.0f});
             window.draw(desc);
         } else {
             drawButton(window, res.font, btn, mousePos);
@@ -338,68 +489,54 @@ void renderRouteSelectOverlay(sf::RenderWindow& window, const GameResources& res
 
 void renderHowToPlayOverlay(sf::RenderWindow& window, const GameResources& res, sf::Vector2f mousePos) {
     sf::RectangleShape dim({static_cast<float>(WINDOW_WIDTH), static_cast<float>(WINDOW_HEIGHT)});
-    dim.setFillColor(sf::Color(8, 12, 20, 190));
+    dim.setFillColor(sf::Color(6, 10, 22, 190));
     window.draw(dim);
 
-    drawPanelBox(window, {195.0f, 65.0f}, {890.0f, 595.0f});
-    drawCenteredText(window, res.font, "KAIP ŽAISTI", 32, sf::Color(255, 214, 84), {640.0f, 110.0f});
+    drawGlassPanel(window, {185.0f, 58.0f}, {910.0f, 608.0f}, sf::Color(168, 85, 247));
+    drawShadowedCenteredText(window, res.font, "KAIP ŽAISTI", 32, COL_GOLD, {640.0f, 104.0f}, true);
 
-    // Kairė kolona: Kliūtys
-    sf::Text leftHeader(res.font, toSfString("KLIŪTYS KELYJE:"), 19);
-    leftHeader.setStyle(sf::Text::Bold);
-    leftHeader.setFillColor(sf::Color(255, 165, 145));
-    leftHeader.setPosition({235.0f, 152.0f});
-    window.draw(leftHeader);
+    // Kairė vidinė kortelė: Kliūtys
+    drawRoundedRect(window, {218.0f, 142.0f}, {410.0f, 412.0f}, 14.0f, COL_PANEL_INNER, 1.2f, sf::Color(244, 63, 94, 120));
+    drawShadowedText(window, res.font, "KLIŪTYS KELYJE", 18, sf::Color(253, 164, 175), {240.0f, 158.0f}, true);
 
     const std::string obstaclesInfo =
-        "- Sportiniai automobiliai: mirksi posūkiu ir staigiai\n"
-        "  persirikiuoja į gretimą juostą!\n\n"
-        "- Raudoni troleibusai: ilgi ir lėti – apvažiuok iš anksto.\n\n"
-        "- Paspirtukininkai: siauri, greiti ir vingiuoja juostoje.\n\n"
-        "- Kelio darbai: stacionarios oranžinės užtvaros.\n\n"
-        "Kiekviena avarija atima -1 Arto kantrybės ir prideda +1 min!";
+        "- Sportiniai automobiliai:\n  pypia, mirksi posūkiu ir staigiai\n  persirikiuoja į gretimą juostą!\n\n"
+        "- Raudoni troleibusai:\n  ilgi ir lėti – apvažiuok iš anksto.\n\n"
+        "- Paspirtukininkai:\n  siauri, greiti ir vingiuoja juostoje.\n\n"
+        "- Kelio darbai:\n  stacionarios oranžinės užtvaros.\n\n"
+        "Avarija: -1 dėstytojo kantrybės\nir +1 min vėlavimo baudos!";
 
     sf::Text obsText(res.font, toSfString(obstaclesInfo), 14);
-    obsText.setFillColor(sf::Color(225, 232, 242));
-    obsText.setPosition({235.0f, 190.0f});
+    obsText.setFillColor(COL_TEXT_MAIN);
+    obsText.setPosition({240.0f, 196.0f});
     window.draw(obsText);
 
-    // Dešinė kolona: Bonusai ir valdymas
-    sf::Text rightHeader(res.font, toSfString("BONUSAI IR VALDYMAS:"), 19);
-    rightHeader.setStyle(sf::Text::Bold);
-    rightHeader.setFillColor(sf::Color(130, 235, 165));
-    rightHeader.setPosition({680.0f, 152.0f});
-    window.draw(rightHeader);
+    // Dešinė vidinė kortelė: Bonusai ir valdymas
+    drawRoundedRect(window, {652.0f, 142.0f}, {410.0f, 412.0f}, 14.0f, COL_PANEL_INNER, 1.2f, sf::Color(0, 214, 125, 120));
+    drawShadowedText(window, res.font, "BONUSAI IR VALDYMAS", 18, sf::Color(110, 231, 183), {674.0f, 158.0f}, true);
 
-    // Bonusų ikonėlės + aprašymai
-    if (res.hasCoffee) drawSpriteFit(window, res.coffee, {680.0f, 192.0f}, {44.0f, 44.0f});
-    sf::Text tCoffee(res.font, toSfString("Kava: +1 Arto kantrybės,\n+150 tšk. ir -0.5 min vėlavimo."), 14);
-    tCoffee.setFillColor(sf::Color(235, 240, 248));
-    tCoffee.setPosition({736.0f, 194.0f});
+    if (res.hasCoffee) drawSpriteFit(window, res.coffee, {674.0f, 198.0f}, {44.0f, 44.0f});
+    sf::Text tCoffee(res.font, toSfString("Kava: +1 dėstytojo kantrybės,\n+150 tšk. ir -0.5 min vėlavimo."), 13);
+    tCoffee.setFillColor(COL_TEXT_MAIN);
+    tCoffee.setPosition({730.0f, 200.0f});
     window.draw(tCoffee);
 
-    if (res.hasGreenWave) drawSpriteFit(window, res.greenWave, {680.0f, 256.0f}, {44.0f, 44.0f});
-    sf::Text tWave(res.font, toSfString("Žalia banga: 3.5 s turbo greitis\nir laikinas imunitetas avarijoms!"), 14);
-    tWave.setFillColor(sf::Color(235, 240, 248));
-    tWave.setPosition({736.0f, 258.0f});
+    if (res.hasGreenWave) drawSpriteFit(window, res.greenWave, {674.0f, 260.0f}, {44.0f, 44.0f});
+    sf::Text tWave(res.font, toSfString("Žalia banga: 3.5 s turbo greitis\nir laikinas imunitetas avarijoms!"), 13);
+    tWave.setFillColor(COL_TEXT_MAIN);
+    tWave.setPosition({730.0f, 262.0f});
     window.draw(tWave);
 
-    if (res.hasUsb) drawSpriteFit(window, res.usb, {680.0f, 320.0f}, {44.0f, 44.0f});
-    sf::Text tUsb(res.font, toSfString("USB su skaidrėmis: +300 taškų!\nArtas labai apsidžiaugia."), 14);
-    tUsb.setFillColor(sf::Color(235, 240, 248));
-    tUsb.setPosition({736.0f, 322.0f});
+    if (res.hasUsb) drawSpriteFit(window, res.usb, {674.0f, 322.0f}, {44.0f, 44.0f});
+    sf::Text tUsb(res.font, toSfString("USB su skaidrėmis: +300 taškų!\nDėstytojas labai apsidžiaugia."), 13);
+    tUsb.setFillColor(COL_TEXT_MAIN);
+    tUsb.setPosition({730.0f, 324.0f});
     window.draw(tUsb);
 
-    sf::Text ctrl(res.font,
-        toSfString("Valdymas:\n"
-                   "  A / D arba <- / -> : keisti juostas\n"
-                   "  W / S arba ^ / v   : greitinti / stabdyti\n"
-                   "  P arba Esc         : pauzė\n"
-                   "  M                  : išjungti / įjungti garsą"),
-        14);
-    ctrl.setFillColor(sf::Color(185, 205, 230));
-    ctrl.setPosition({680.0f, 396.0f});
-    window.draw(ctrl);
+    drawKeyCap(window, res.font, {674.0f, 392.0f}, 86.0f, "A/D / <- ->", "keisti juostas");
+    drawKeyCap(window, res.font, {674.0f, 424.0f}, 86.0f, "W/S / ^ v", "greitinti / stabdyti");
+    drawKeyCap(window, res.font, {674.0f, 456.0f}, 86.0f, "P / ESC", "pauzė");
+    drawKeyCap(window, res.font, {674.0f, 488.0f}, 86.0f, "M", "įjungti / išjungti garsą");
 
     for (const ButtonRect& btn : getScreenButtons(GameState::HowToPlay)) {
         drawButton(window, res.font, btn, mousePos);
@@ -408,63 +545,59 @@ void renderHowToPlayOverlay(sf::RenderWindow& window, const GameResources& res, 
 
 void renderHighScoresOverlay(sf::RenderWindow& window, const GameData& game, const GameResources& res, sf::Vector2f mousePos) {
     sf::RectangleShape dim({static_cast<float>(WINDOW_WIDTH), static_cast<float>(WINDOW_HEIGHT)});
-    dim.setFillColor(sf::Color(8, 12, 20, 190));
+    dim.setFillColor(sf::Color(6, 10, 22, 190));
     window.draw(dim);
 
-    drawPanelBox(window, {225.0f, 75.0f}, {830.0f, 580.0f});
-    drawCenteredText(window, res.font, "GERIAUSI PAVEŽĖJAI (TOP 5)", 30, sf::Color(255, 214, 84), {640.0f, 122.0f});
+    drawGlassPanel(window, {215.0f, 68.0f}, {850.0f, 590.0f}, COL_GOLD);
+    drawShadowedCenteredText(window, res.font, "GERIAUSI PAVEŽĖJAI (TOP 5)", 30, COL_GOLD, {640.0f, 118.0f}, true);
 
-    // 3 maršrutų skirtukai
     static const std::string tabNames[ROUTE_COUNT] = {"1. Antakalnis", "2. Centras", "3. Pašilaičiai"};
     for (int r = 0; r < ROUTE_COUNT; ++r) {
         const sf::FloatRect tab = getHighScoreTabBounds(r);
         const bool active = (game.highScoreTab == r);
         const bool hovered = tab.contains(mousePos);
 
-        sf::RectangleShape box(tab.size);
-        box.setPosition(tab.position);
-        box.setFillColor(active ? sf::Color(46, 145, 92) : (hovered ? sf::Color(58, 74, 98) : sf::Color(34, 44, 60)));
-        box.setOutlineThickness(active ? 2.5f : 1.5f);
-        box.setOutlineColor(active ? sf::Color::White : sf::Color(95, 115, 145));
-        window.draw(box);
-
-        drawCenteredText(window, res.font, tabNames[r], 16, sf::Color::White,
-                         {tab.position.x + tab.size.x * 0.5f, tab.position.y + tab.size.y * 0.5f});
+        const sf::Color bg = active ? sf::Color(0, 178, 102) : (hovered ? sf::Color(37, 99, 235, 190) : sf::Color(22, 33, 56));
+        drawRoundedRect(window, tab.position, tab.size, 11.0f, bg, active ? 2.2f : 1.4f,
+                        active ? sf::Color::White : sf::Color(86, 115, 160));
+        drawShadowedCenteredText(window, res.font, tabNames[r], 15, sf::Color::White,
+                                 {tab.position.x + tab.size.x * 0.5f, tab.position.y + tab.size.y * 0.5f}, active);
     }
 
     const RouteConfig route = getRouteConfig(game.highScoreTab);
-    drawCenteredText(window, res.font, route.name + " (" + route.difficulty + ")", 16, sf::Color(165, 205, 255), {640.0f, 236.0f});
+    drawCenteredText(window, res.font, route.name + "  [" + route.difficulty + "]", 15, COL_CYAN, {640.0f, 236.0f});
 
-    // Lentelės antraštė
-    sf::Text header(res.font, toSfString("Vieta   Vairuotojas        Taškai     Vėlavimas      Įvertinimas"), 16);
+    drawRoundedRect(window, {255.0f, 260.0f}, {770.0f, 34.0f}, 8.0f, sf::Color(25, 38, 66));
+    sf::Text header(res.font, toSfString("Vieta   Vairuotojas        Taškai     Vėlavimas      Įvertinimas"), 15);
     header.setStyle(sf::Text::Bold);
-    header.setFillColor(sf::Color(255, 224, 120));
-    header.setPosition({270.0f, 268.0f});
+    header.setFillColor(COL_GOLD);
+    header.setPosition({272.0f, 268.0f});
     window.draw(header);
 
     const std::vector<HighScoreEntry> list = getRouteHighScores(game.highScores, game.highScoreTab);
     if (list.empty()) {
-        drawCenteredText(window, res.font, "Šiame maršrute dar nėra išsaugotų rekordų.\nBūk pirmasis!", 19, sf::Color(180, 195, 215), {640.0f, 400.0f});
+        drawCenteredText(window, res.font, "Šiame maršrute dar nėra išsaugotų rekordų.\nBūk pirmasis!", 18, COL_TEXT_MUTED, {640.0f, 415.0f});
     } else {
         for (std::size_t i = 0; i < list.size(); ++i) {
             const HighScoreEntry& e = list[i];
-            const float rowY = 312.0f + static_cast<float>(i) * 48.0f;
+            const float rowY = 308.0f + static_cast<float>(i) * 48.0f;
 
-            sf::RectangleShape rowBg({740.0f, 40.0f});
-            rowBg.setPosition({270.0f, rowY - 6.0f});
-            rowBg.setFillColor(i == 0 ? sf::Color(48, 66, 48, 190) : sf::Color(30, 38, 52, 180));
-            window.draw(rowBg);
+            const sf::Color rowBg = (i == 0)
+                ? sf::Color(0, 178, 102, 72)
+                : ((i % 2 == 0) ? sf::Color(22, 33, 56, 200) : sf::Color(16, 24, 44, 200));
+            drawRoundedRect(window, {255.0f, rowY}, {770.0f, 40.0f}, 9.0f, rowBg,
+                            i == 0 ? 1.5f : 0.0f, sf::Color(0, 214, 125, 170));
 
             std::ostringstream oss;
             oss << " #" << (i + 1) << "     "
                 << std::left << std::setw(15) << e.playerName
                 << std::right << std::setw(7) << e.score << "      "
-                << formatDelayTime(e.delaySeconds) << "     "
+                << formatDelayVerbose(e.delaySeconds) << "     "
                 << e.stars << "/5 zv.";
 
-            sf::Text rowText(res.font, toSfString(oss.str()), 16);
-            rowText.setFillColor(i == 0 ? sf::Color(255, 232, 130) : sf::Color(232, 238, 248));
-            rowText.setPosition({280.0f, rowY + 2.0f});
+            sf::Text rowText(res.font, toSfString(oss.str()), 15);
+            rowText.setFillColor(i == 0 ? COL_GOLD : COL_TEXT_MAIN);
+            rowText.setPosition({272.0f, rowY + 10.0f});
             window.draw(rowText);
         }
     }
@@ -476,24 +609,25 @@ void renderHighScoresOverlay(sf::RenderWindow& window, const GameData& game, con
 
 void renderCountdownOverlay(sf::RenderWindow& window, const GameData& game, const GameResources& res) {
     sf::RectangleShape dim({static_cast<float>(WINDOW_WIDTH), static_cast<float>(WINDOW_HEIGHT)});
-    dim.setFillColor(sf::Color(6, 10, 18, 110));
+    dim.setFillColor(sf::Color(6, 10, 22, 125));
     window.draw(dim);
 
     const int sec = static_cast<int>(std::ceil(game.countdownTimer));
     const std::string label = (sec >= 1) ? std::to_string(sec) : "VAŽIUOJAM!";
-    const sf::Color col = (sec >= 1) ? sf::Color(255, 224, 90) : sf::Color(88, 235, 145);
+    const sf::Color col = (sec >= 1) ? COL_GOLD : COL_EMERALD;
 
-    drawCenteredText(window, res.font, "PASIRUOŠK!", 28, sf::Color::White, {640.0f, 250.0f});
-    drawCenteredText(window, res.font, label, 84, col, {640.0f, 345.0f});
+    drawGlassPanel(window, {450.0f, 205.0f}, {380.0f, 220.0f}, col);
+    drawShadowedCenteredText(window, res.font, "PASIRUOŠK!", 26, COL_TEXT_MAIN, {640.0f, 255.0f}, true);
+    drawShadowedCenteredText(window, res.font, label, 82, col, {640.0f, 342.0f}, true);
 }
 
 void renderPauseOverlay(sf::RenderWindow& window, const GameResources& res, sf::Vector2f mousePos) {
     sf::RectangleShape dim({static_cast<float>(WINDOW_WIDTH), static_cast<float>(WINDOW_HEIGHT)});
-    dim.setFillColor(sf::Color(8, 12, 20, 185));
+    dim.setFillColor(sf::Color(6, 10, 22, 185));
     window.draw(dim);
 
-    drawPanelBox(window, {415.0f, 205.0f}, {450.0f, 330.0f});
-    drawCenteredText(window, res.font, "PAUZĖ", 36, sf::Color(255, 214, 84), {640.0f, 260.0f});
+    drawGlassPanel(window, {415.0f, 200.0f}, {450.0f, 338.0f}, COL_GOLD);
+    drawShadowedCenteredText(window, res.font, "PAUZĖ", 36, COL_GOLD, {640.0f, 256.0f}, true);
 
     for (const ButtonRect& btn : getScreenButtons(GameState::Paused)) {
         drawButton(window, res.font, btn, mousePos);
@@ -502,37 +636,33 @@ void renderPauseOverlay(sf::RenderWindow& window, const GameResources& res, sf::
 
 void renderNameInputOverlay(sf::RenderWindow& window, const GameData& game, const GameResources& res, sf::Vector2f mousePos) {
     sf::RectangleShape dim({static_cast<float>(WINDOW_WIDTH), static_cast<float>(WINDOW_HEIGHT)});
-    dim.setFillColor(sf::Color(8, 12, 20, 195));
+    dim.setFillColor(sf::Color(6, 10, 22, 195));
     window.draw(dim);
 
-    drawPanelBox(window, {310.0f, 130.0f}, {660.0f, 470.0f}, sf::Color(88, 214, 141));
-    drawCenteredText(window, res.font, "ARTAS PRISTATYTAS!", 34, sf::Color(88, 224, 145), {640.0f, 185.0f});
+    drawGlassPanel(window, {300.0f, 122.0f}, {680.0f, 482.0f}, COL_EMERALD);
+    drawShadowedCenteredText(window, res.font, "DĖSTYTOJAS PRISTATYTAS!", 32, COL_EMERALD, {640.0f, 176.0f}, true);
 
     const RouteConfig route = getRouteConfig(game.selectedRoute);
     const int stars = getStarsForRun(game.delaySeconds, route);
+    drawRoundedRect(window, {355.0f, 212.0f}, {570.0f, 36.0f}, 18.0f, sf::Color(255, 196, 36, 32), 1.2f, sf::Color(255, 196, 36, 150));
     drawCenteredText(window, res.font,
-        "Taškai: " + std::to_string(game.score) + "  |  Vėlavimas: " + formatDelayTime(game.delaySeconds) +
-        "  |  " + std::to_string(stars) + "/5 žvaigždutės",
-        17, sf::Color(255, 228, 130), {640.0f, 236.0f});
+        "Taškai: " + std::to_string(game.score) + "  |  Vėlavimas: " + formatDelayVerbose(game.delaySeconds) +
+        "  |  " + std::to_string(stars) + "/5 zv.",
+        15, COL_GOLD, {640.0f, 230.0f});
 
-    drawCenteredText(window, res.font, "Įvesk savo vairuotojo vardą rekordų lentelei:", 17, sf::Color(225, 235, 248), {640.0f, 288.0f});
+    drawCenteredText(window, res.font, "Įvesk savo vairuotojo vardą rekordų lentelei:", 16, COL_TEXT_MAIN, {640.0f, 286.0f});
 
-    // Teksto įvedimo laukelis su mirksinčiu žymekliu
-    sf::RectangleShape inputBox({380.0f, 52.0f});
-    inputBox.setPosition({450.0f, 322.0f});
-    inputBox.setFillColor(sf::Color(28, 36, 50));
-    inputBox.setOutlineThickness(2.5f);
-    inputBox.setOutlineColor(game.nameValidationError.empty() ? sf::Color(96, 178, 255) : sf::Color(235, 86, 80));
-    window.draw(inputBox);
+    const sf::Color boxBorder = game.nameValidationError.empty() ? COL_CYAN : COL_CORAL;
+    drawRoundedRect(window, {445.0f, 318.0f}, {390.0f, 54.0f}, 12.0f, sf::Color(20, 30, 52), 2.5f, boxBorder);
 
     const bool showCursor = (static_cast<int>(game.totalElapsed * 2.2f) % 2 == 0);
     const std::string displayInput = game.playerNameInput + (showCursor ? "_" : "");
-    drawCenteredText(window, res.font, displayInput, 24, sf::Color::White, {640.0f, 348.0f});
+    drawCenteredText(window, res.font, displayInput, 24, sf::Color::White, {640.0f, 345.0f});
 
     if (!game.nameValidationError.empty()) {
-        drawCenteredText(window, res.font, game.nameValidationError, 14, sf::Color(255, 118, 112), {640.0f, 404.0f});
+        drawCenteredText(window, res.font, game.nameValidationError, 14, sf::Color(253, 164, 175), {640.0f, 404.0f});
     } else {
-        drawCenteredText(window, res.font, "Tik raidės (A-Z), skaičiai, tarpas, _ arba - (iki 12 simb.)", 13, sf::Color(150, 168, 192), {640.0f, 404.0f});
+        drawCenteredText(window, res.font, "Raidės (A-Z), skaičiai, tarpas, _ arba - (iki 12 simb.)", 13, COL_TEXT_MUTED, {640.0f, 404.0f});
     }
 
     for (const ButtonRect& btn : getScreenButtons(GameState::NameInput)) {
@@ -542,45 +672,48 @@ void renderNameInputOverlay(sf::RenderWindow& window, const GameData& game, cons
 
 void renderEndOverlay(sf::RenderWindow& window, const GameData& game, const GameResources& res, sf::Vector2f mousePos) {
     sf::RectangleShape dim({static_cast<float>(WINDOW_WIDTH), static_cast<float>(WINDOW_HEIGHT)});
-    dim.setFillColor(sf::Color(8, 12, 20, 195));
+    dim.setFillColor(sf::Color(6, 10, 22, 195));
     window.draw(dim);
 
     const RouteConfig route = getRouteConfig(game.selectedRoute);
-    drawPanelBox(window, {295.0f, 82.0f}, {690.0f, 575.0f});
+    const bool isWin = (game.state == GameState::Victory);
+    drawGlassPanel(window, {285.0f, 76.0f}, {710.0f, 584.0f}, isWin ? COL_EMERALD : COL_CORAL);
 
-    if (game.state == GameState::Victory) {
-        drawCenteredText(window, res.font, "ARTAS PRISTATYTAS!", 34, sf::Color(88, 224, 145), {640.0f, 134.0f});
+    if (isWin) {
+        drawShadowedCenteredText(window, res.font, "DĖSTYTOJAS PRISTATYTAS!", 33, COL_EMERALD, {640.0f, 128.0f}, true);
 
         const int stars = getStarsForRun(game.delaySeconds, route);
         std::string rank;
-        if (stars == 5) rank = "Arto įvertinimas: 5/5 žvaigždutės! Rekordiškai greita kelionė!";
-        else if (stars == 4) rank = "Arto įvertinimas: 4/5 žvaigždutės! Spėjome beveik laiku!";
-        else rank = "Arto įvertinimas: 3/5 žvaigždutės! Studentai jau stovėjo prie durų!";
+        if (stars == 5) rank = "Įvertinimas: 5/5 žvaigždutės! Rekordiškai greita kelionė!";
+        else if (stars == 4) rank = "Įvertinimas: 4/5 žvaigždutės! Spėjome beveik laiku!";
+        else rank = "Įvertinimas: 3/5 žvaigždutės! Studentai jau stovėjo prie durų!";
 
-        drawCenteredText(window, res.font, rank, 17, sf::Color(255, 225, 120), {640.0f, 182.0f});
+        drawCenteredText(window, res.font, rank, 16, COL_GOLD, {640.0f, 174.0f});
         if (game.scoreSavedThisRun) {
-            drawCenteredText(window, res.font, "Rezultatas išsaugotas rekordų lentelėje!", 14, sf::Color(130, 230, 165), {640.0f, 214.0f});
+            drawCenteredText(window, res.font, "Rezultatas išsaugotas rekordų lentelėje!", 13, sf::Color(110, 231, 183), {640.0f, 204.0f});
         }
     } else {
-        drawCenteredText(window, res.font, "KELIONĖ ATŠAUKTA...", 34, sf::Color(236, 92, 82), {640.0f, 134.0f});
+        drawShadowedCenteredText(window, res.font, "KELIONĖ ATŠAUKTA...", 33, COL_CORAL, {640.0f, 128.0f}, true);
 
         const std::string reason = (game.gameOverReason == GameOverReason::TooLate)
-            ? ("Praėjo " + std::to_string(static_cast<int>(route.maxDelayMinutes)) + " min. – Artas: „Studentai jau išėjo namo!“")
-            : "Artas neišlaikė: „Sustok, geriau eisiu pėsčiomis!“";
-        drawCenteredText(window, res.font, reason, 18, sf::Color(255, 196, 140), {640.0f, 186.0f});
+            ? ("Praėjo " + std::to_string(static_cast<int>(route.maxDelayMinutes)) + " min. – Dėstytojas: „Studentai jau išėjo namo!“")
+            : "Dėstytojas neišlaikė: „Sustok, geriau eisiu pėsčiomis!“";
+        drawCenteredText(window, res.font, reason, 17, sf::Color(253, 186, 116), {640.0f, 180.0f});
     }
+
+    drawRoundedRect(window, {345.0f, 230.0f}, {590.0f, 198.0f}, 14.0f, COL_PANEL_INNER, 1.2f, COL_BORDER_SUBTLE);
 
     const std::string summary =
         "Maršrutas:            " + route.name + "\n"
         "Nuvažiuotas atstumas: " + formatDistance(game.distanceKm, route.targetDistanceKm) + "\n"
-        "Vėlavimo laikas:      " + formatDelayTime(game.delaySeconds) + "\n"
+        "Vėlavimo laikas:      " + formatDelayVerbose(game.delaySeconds) + "\n"
         "Surinkti taškai:      " + std::to_string(game.score) + "\n"
         "Aplenktos kliūtys:    " + std::to_string(game.dodgedCount) + "\n"
         "Kavos / USB skaidrės: " + std::to_string(game.coffeesCollected) + " / " + std::to_string(game.usbCollected);
 
-    sf::Text summaryText(res.font, toSfString(summary), 17);
-    summaryText.setFillColor(sf::Color(232, 238, 246));
-    summaryText.setPosition({365.0f, 246.0f});
+    sf::Text summaryText(res.font, toSfString(summary), 16);
+    summaryText.setFillColor(COL_TEXT_MAIN);
+    summaryText.setPosition({372.0f, 250.0f});
     window.draw(summaryText);
 
     for (const ButtonRect& btn : getScreenButtons(game.state)) {
@@ -613,43 +746,53 @@ void renderRoad(sf::RenderWindow& window, const GameData& game) {
     const RouteConfig route = getRouteConfig(game.selectedRoute);
     const float progress = std::clamp(game.distanceKm / route.targetDistanceKm, 0.0f, 1.0f);
 
-    // Subtilus rytinės -> dienos šviesos perėjimas pakelėje
+    // Sodri žalia miesto parko pakelė (švelniai šviesėja artėjant prie tikslo)
     const sf::Color grassColor(
-        static_cast<std::uint8_t>(30.0f + 16.0f * progress),
-        static_cast<std::uint8_t>(66.0f + 26.0f * progress),
-        static_cast<std::uint8_t>(42.0f + 12.0f * progress)
+        static_cast<std::uint8_t>(18.0f + 12.0f * progress),
+        static_cast<std::uint8_t>(78.0f + 28.0f * progress),
+        static_cast<std::uint8_t>(48.0f + 16.0f * progress)
     );
     sf::RectangleShape grass({static_cast<float>(WINDOW_WIDTH), static_cast<float>(WINDOW_HEIGHT)});
     grass.setFillColor(grassColor);
     window.draw(grass);
 
+    // Pastatai su šiltai šviečiančiais langais ir sluoksniuoti medžiai
     for (const SceneryProp& prop : game.scenery) {
         if (prop.isBuilding) {
-            sf::RectangleShape shadow(prop.rectSize);
-            shadow.setPosition({prop.position.x + 8.0f, prop.position.y + 8.0f});
-            shadow.setFillColor(sf::Color(0, 0, 0, 55));
-            window.draw(shadow);
-
-            sf::RectangleShape building(prop.rectSize);
-            building.setPosition(prop.position);
-            building.setFillColor(prop.color);
-            building.setOutlineThickness(2.0f);
-            building.setOutlineColor(sf::Color(28, 34, 46));
-            window.draw(building);
+            drawRoundedRect(window, {prop.position.x + 8.0f, prop.position.y + 9.0f}, prop.rectSize, 8.0f, sf::Color(0, 0, 0, 75));
+            drawRoundedRect(window, prop.position, prop.rectSize, 8.0f, sf::Color(30, 41, 59), 2.0f, sf::Color(51, 65, 85));
+            // Stogo akcentas
+            drawRoundedRect(window, {prop.position.x + 10.0f, prop.position.y + 10.0f},
+                            {prop.rectSize.x - 20.0f, prop.rectSize.y - 20.0f}, 5.0f, sf::Color(42, 56, 80));
+            // Šilti šviečiantys langai
+            for (float wy = prop.position.y + 18.0f; wy < prop.position.y + prop.rectSize.y - 22.0f; wy += 24.0f) {
+                for (float wx = prop.position.x + 18.0f; wx < prop.position.x + prop.rectSize.x - 22.0f; wx += 24.0f) {
+                    sf::RectangleShape win({10.0f, 10.0f});
+                    win.setPosition({wx, wy});
+                    win.setFillColor(sf::Color(253, 224, 71, 185));
+                    window.draw(win);
+                }
+            }
         } else {
             sf::CircleShape shadow(prop.radius);
             shadow.setOrigin({prop.radius, prop.radius});
-            shadow.setPosition({prop.position.x + 6.0f, prop.position.y + 6.0f});
-            shadow.setFillColor(sf::Color(0, 0, 0, 50));
+            shadow.setPosition({prop.position.x + 7.0f, prop.position.y + 7.0f});
+            shadow.setFillColor(sf::Color(0, 0, 0, 65));
             window.draw(shadow);
 
-            sf::CircleShape tree(prop.radius);
-            tree.setOrigin({prop.radius, prop.radius});
-            tree.setPosition(prop.position);
-            tree.setFillColor(prop.color);
-            tree.setOutlineThickness(2.0f);
-            tree.setOutlineColor(sf::Color(24, 65, 32));
-            window.draw(tree);
+            sf::CircleShape treeOuter(prop.radius);
+            treeOuter.setOrigin({prop.radius, prop.radius});
+            treeOuter.setPosition(prop.position);
+            treeOuter.setFillColor(sf::Color(21, 128, 61));
+            treeOuter.setOutlineThickness(2.0f);
+            treeOuter.setOutlineColor(sf::Color(12, 74, 38));
+            window.draw(treeOuter);
+
+            sf::CircleShape treeInner(prop.radius * 0.62f);
+            treeInner.setOrigin({prop.radius * 0.62f, prop.radius * 0.62f});
+            treeInner.setPosition({prop.position.x - 3.0f, prop.position.y - 3.0f});
+            treeInner.setFillColor(sf::Color(34, 197, 94, 180));
+            window.draw(treeInner);
         }
     }
 
@@ -657,58 +800,72 @@ void renderRoad(sf::RenderWindow& window, const GameData& game) {
     const float sidewalkW = 24.0f;
     sf::RectangleShape leftSidewalk({sidewalkW, static_cast<float>(WINDOW_HEIGHT)});
     leftSidewalk.setPosition({ROAD_LEFT - sidewalkW, 0.0f});
-    leftSidewalk.setFillColor(sf::Color(118, 125, 134));
+    leftSidewalk.setFillColor(sf::Color(71, 85, 105));
     window.draw(leftSidewalk);
 
     sf::RectangleShape rightSidewalk({sidewalkW, static_cast<float>(WINDOW_HEIGHT)});
     rightSidewalk.setPosition({ROAD_RIGHT, 0.0f});
-    rightSidewalk.setFillColor(sf::Color(118, 125, 134));
+    rightSidewalk.setFillColor(sf::Color(71, 85, 105));
     window.draw(rightSidewalk);
 
-    // Asfaltas
-    sf::RectangleShape asphalt({ROAD_WIDTH, static_cast<float>(WINDOW_HEIGHT)});
-    asphalt.setPosition({ROAD_LEFT, 0.0f});
-    asphalt.setFillColor(sf::Color(50, 54, 62));
-    window.draw(asphalt);
+    // Raudonai balti kelio borteliai (gyvas arkadinis akcentas)
+    int curbIdx = 0;
+    for (float y = -90.0f + game.roadOffset; y < static_cast<float>(WINDOW_HEIGHT) + 90.0f; y += 45.0f) {
+        const sf::Color curbCol = (curbIdx++ % 2 == 0) ? sf::Color(225, 29, 72) : sf::Color(241, 245, 249);
+        sf::RectangleShape lc({6.0f, 45.0f});
+        lc.setPosition({ROAD_LEFT - 6.0f, y});
+        lc.setFillColor(curbCol);
+        window.draw(lc);
 
-    // Kraštinės geltonos linijos
+        sf::RectangleShape rc({6.0f, 45.0f});
+        rc.setPosition({ROAD_RIGHT, y});
+        rc.setFillColor(curbCol);
+        window.draw(rc);
+    }
+
+    // Tamsus kontrastingas asfaltas su subtiliai skirtingais juostų atspalviais
+    for (int lane = 0; lane < LANE_COUNT; ++lane) {
+        sf::RectangleShape laneRect({LANE_WIDTH, static_cast<float>(WINDOW_HEIGHT)});
+        laneRect.setPosition({ROAD_LEFT + static_cast<float>(lane) * LANE_WIDTH, 0.0f});
+        laneRect.setFillColor((lane % 2 == 0) ? sf::Color(30, 35, 48) : sf::Color(36, 42, 56));
+        window.draw(laneRect);
+    }
+
+    // Ryškios gintarinės kraštinės linijos
     sf::RectangleShape leftLine({5.0f, static_cast<float>(WINDOW_HEIGHT)});
-    leftLine.setPosition({ROAD_LEFT + 6.0f, 0.0f});
-    leftLine.setFillColor(sf::Color(236, 188, 52));
+    leftLine.setPosition({ROAD_LEFT + 7.0f, 0.0f});
+    leftLine.setFillColor(COL_GOLD);
     window.draw(leftLine);
 
     sf::RectangleShape rightLine({5.0f, static_cast<float>(WINDOW_HEIGHT)});
-    rightLine.setPosition({ROAD_RIGHT - 11.0f, 0.0f});
-    rightLine.setFillColor(sf::Color(236, 188, 52));
+    rightLine.setPosition({ROAD_RIGHT - 12.0f, 0.0f});
+    rightLine.setFillColor(COL_GOLD);
     window.draw(rightLine);
 
-    // Punktyrinės juostų linijos
+    // Ryškios baltos punktyrinės juostų linijos
     for (int lane = 1; lane < LANE_COUNT; ++lane) {
         const float x = ROAD_LEFT + static_cast<float>(lane) * LANE_WIDTH - 3.0f;
         for (float y = -90.0f + game.roadOffset; y < static_cast<float>(WINDOW_HEIGHT) + 90.0f; y += 90.0f) {
-            sf::RectangleShape dash({6.0f, 44.0f});
-            dash.setPosition({x, y});
-            dash.setFillColor(sf::Color(232, 236, 240, 210));
-            window.draw(dash);
+            drawRoundedRect(window, {x, y}, {6.0f, 46.0f}, 3.0f, sf::Color(241, 245, 249, 225));
         }
     }
 
-    // Greičio linijos šonuose, kai laikomas W arba veikia Žalia banga
+    // Greičio linijos laikant W arba veikiant Žaliai bangai
     if (game.state == GameState::Playing && game.speedMultiplier > 1.2f) {
-        const std::uint8_t lineAlpha = (game.player.greenWaveTimer > 0.0f) ? 140 : 85;
+        const std::uint8_t lineAlpha = (game.player.greenWaveTimer > 0.0f) ? 165 : 95;
         const sf::Color lineColor = (game.player.greenWaveTimer > 0.0f)
-            ? sf::Color(120, 255, 175, lineAlpha)
-            : sf::Color(235, 245, 255, lineAlpha);
+            ? sf::Color(0, 255, 150, lineAlpha)
+            : sf::Color(186, 230, 253, lineAlpha);
 
         for (int i = 0; i < 6; ++i) {
             const float y = std::fmod(game.roadOffset * 2.4f + static_cast<float>(i) * 130.0f, static_cast<float>(WINDOW_HEIGHT) + 80.0f) - 40.0f;
-            sf::RectangleShape leftStreak({3.0f, 52.0f});
+            sf::RectangleShape leftStreak({3.5f, 54.0f});
             leftStreak.setPosition({ROAD_LEFT + 18.0f, y});
             leftStreak.setFillColor(lineColor);
             window.draw(leftStreak);
 
-            sf::RectangleShape rightStreak({3.0f, 52.0f});
-            rightStreak.setPosition({ROAD_RIGHT - 21.0f, y + 40.0f});
+            sf::RectangleShape rightStreak({3.5f, 54.0f});
+            rightStreak.setPosition({ROAD_RIGHT - 21.5f, y + 40.0f});
             rightStreak.setFillColor(lineColor);
             window.draw(rightStreak);
         }
@@ -720,8 +877,8 @@ void renderEntities(sf::RenderWindow& window, const GameData& game, const GameRe
     for (const BonusItem& bonus : game.bonuses) {
         if (!bonus.active) continue;
 
-        const float pulse = 1.0f + 0.08f * std::sin(bonus.pulsePhase);
-        const float drawSize = bonus.radius * 2.25f * pulse;
+        const float pulse = 1.0f + 0.09f * std::sin(bonus.pulsePhase);
+        const float drawSize = bonus.radius * 2.3f * pulse;
         const sf::Vector2f topLeft = {bonus.position.x - drawSize * 0.5f, bonus.position.y - drawSize * 0.5f};
 
         if (bonus.type == BonusType::Coffee && res.hasCoffee) {
@@ -734,13 +891,13 @@ void renderEntities(sf::RenderWindow& window, const GameData& game, const GameRe
             sf::CircleShape fallback(bonus.radius * pulse);
             fallback.setOrigin({bonus.radius * pulse, bonus.radius * pulse});
             fallback.setPosition(bonus.position);
-            fallback.setFillColor(bonus.type == BonusType::Coffee ? sf::Color(180, 115, 50)
-                : (bonus.type == BonusType::GreenWave ? sf::Color(46, 204, 113) : sf::Color(52, 152, 219)));
+            fallback.setFillColor(bonus.type == BonusType::Coffee ? COL_GOLD
+                : (bonus.type == BonusType::GreenWave ? COL_EMERALD : COL_CYAN));
             window.draw(fallback);
         }
     }
 
-    // 2. Kliūtys (su paveikslėliais ir atsarginiu piešimu)
+    // 2. Kliūtys
     for (const Obstacle& obs : game.obstacles) {
         if (obs.type == ObstacleType::Roadworks) {
             if (res.hasRoadworks) drawSpriteFit(window, res.roadworks, obs.position, obs.size);
@@ -770,16 +927,13 @@ void renderEntities(sf::RenderWindow& window, const GameData& game, const GameRe
         }
     }
 
-    // 3. Žaidėjo automobilis – žalias Arto pavežėjas
+    // 3. Žaidėjo automobilis – žalias pavežėjas
     if (game.player.greenWaveTimer > 0.0f) {
-        // Žalios bangos apsauginė aura
         const float auraPulse = 8.0f + 4.0f * std::sin(game.totalElapsed * 12.0f);
-        sf::RectangleShape aura({game.player.size.x + auraPulse * 2.0f, game.player.size.y + auraPulse * 2.0f});
-        aura.setPosition({game.player.position.x - auraPulse, game.player.position.y - auraPulse});
-        aura.setFillColor(sf::Color(46, 240, 128, 70));
-        aura.setOutlineThickness(3.0f);
-        aura.setOutlineColor(sf::Color(145, 255, 185, 200));
-        window.draw(aura);
+        drawRoundedRect(window,
+                        {game.player.position.x - auraPulse, game.player.position.y - auraPulse},
+                        {game.player.size.x + auraPulse * 2.0f, game.player.size.y + auraPulse * 2.0f},
+                        16.0f, sf::Color(0, 235, 135, 65), 2.8f, sf::Color(110, 255, 185, 220));
     }
 
     std::uint8_t playerAlpha = 255;
@@ -791,7 +945,7 @@ void renderEntities(sf::RenderWindow& window, const GameData& game, const GameRe
     if (res.hasPlayerCar) {
         drawSpriteFit(window, res.playerCar, game.player.position, game.player.size, playerAlpha);
     } else {
-        drawFallbackRect(window, game.player.position, game.player.size, sf::Color(46, 204, 113), playerAlpha);
+        drawFallbackRect(window, game.player.position, game.player.size, COL_EMERALD, playerAlpha);
     }
 }
 
@@ -813,150 +967,130 @@ void renderHUD(sf::RenderWindow& window, const GameData& game, const GameResourc
     const RouteConfig route = getRouteConfig(game.selectedRoute);
 
     if (game.screenFlashTimer > 0.0f) {
-        const std::uint8_t alpha = static_cast<std::uint8_t>(std::min(130.0f, game.screenFlashTimer * 360.0f));
+        const std::uint8_t alpha = static_cast<std::uint8_t>(std::min(125.0f, game.screenFlashTimer * 350.0f));
         sf::RectangleShape flash({static_cast<float>(WINDOW_WIDTH), static_cast<float>(WINDOW_HEIGHT)});
-        flash.setFillColor(sf::Color(220, 40, 40, alpha));
+        flash.setFillColor(sf::Color(244, 63, 94, alpha));
         window.draw(flash);
     }
 
-    // --- KAIRĖS PUSĖS KORTELĖ: Maršrutas ir Vėlavimas ---
-    drawPanelBox(window, {18.0f, 18.0f}, {306.0f, 278.0f});
+    // --- KAIRĖS PUSĖS KORTELĖ: Maršrutas, Progresas ir Vėlavimas ---
+    drawGlassPanel(window, {18.0f, 18.0f}, {308.0f, 286.0f}, COL_EMERALD);
 
-    sf::Text headerLeft(res.font, toSfString("MARŠRUTAS Į PASKAITĄ"), 17);
-    headerLeft.setStyle(sf::Text::Bold);
-    headerLeft.setFillColor(sf::Color(150, 195, 255));
-    headerLeft.setPosition({34.0f, 30.0f});
-    window.draw(headerLeft);
+    drawShadowedText(window, res.font, "MARŠRUTAS", 15, COL_CYAN, {36.0f, 30.0f}, true);
 
-    sf::Text routeNameText(res.font, toSfString(route.name), 13);
-    routeNameText.setFillColor(sf::Color(195, 210, 230));
-    routeNameText.setPosition({34.0f, 54.0f});
-    window.draw(routeNameText);
+    drawRoundedRect(window, {36.0f, 54.0f}, {272.0f, 26.0f}, 8.0f, COL_PANEL_INNER);
+    drawCenteredText(window, res.font, route.name, 13, COL_TEXT_MAIN, {172.0f, 67.0f});
 
-    sf::Text distLabel(res.font, toSfString("Atstumas: " + formatDistance(game.distanceKm, route.targetDistanceKm)), 16);
-    distLabel.setFillColor(sf::Color::White);
-    distLabel.setPosition({34.0f, 80.0f});
+    // Atstumas ir suapvalinta progreso juosta
+    sf::Text distLabel(res.font, toSfString("Atstumas: " + formatDistance(game.distanceKm, route.targetDistanceKm)), 14);
+    distLabel.setFillColor(COL_TEXT_MAIN);
+    distLabel.setPosition({36.0f, 90.0f});
     window.draw(distLabel);
 
-    // Progreso juosta su mini automobiliuko žymekliu
-    const float barW = 270.0f;
-    sf::RectangleShape barBg({barW, 18.0f});
-    barBg.setPosition({34.0f, 110.0f});
-    barBg.setFillColor(sf::Color(42, 50, 64));
-    barBg.setOutlineThickness(1.0f);
-    barBg.setOutlineColor(sf::Color(95, 112, 138));
-    window.draw(barBg);
+    const float barW = 272.0f;
+    drawRoundedRect(window, {36.0f, 114.0f}, {barW, 18.0f}, 9.0f, sf::Color(24, 34, 56), 1.2f, sf::Color(72, 102, 148));
 
     const float progress = std::clamp(game.distanceKm / route.targetDistanceKm, 0.0f, 1.0f);
-    sf::RectangleShape barFill({barW * progress, 18.0f});
-    barFill.setPosition({34.0f, 110.0f});
-    barFill.setFillColor(sf::Color(46, 204, 113));
-    window.draw(barFill);
-
-    // Mažas baltas automobiliuko žymeklis ant juostos
-    sf::CircleShape marker(6.0f);
-    marker.setOrigin({6.0f, 6.0f});
-    marker.setPosition({34.0f + barW * progress, 119.0f});
-    marker.setFillColor(sf::Color(255, 240, 130));
-    marker.setOutlineThickness(1.5f);
-    marker.setOutlineColor(sf::Color(20, 28, 38));
+    if (progress > 0.02f) {
+        drawRoundedRect(window, {36.0f, 114.0f}, {std::max(18.0f, barW * progress), 18.0f}, 9.0f, COL_EMERALD);
+    }
+    sf::CircleShape marker(7.0f);
+    marker.setOrigin({7.0f, 7.0f});
+    marker.setPosition({36.0f + barW * progress, 123.0f});
+    marker.setFillColor(COL_GOLD);
+    marker.setOutlineThickness(2.0f);
+    marker.setOutlineColor(sf::Color(15, 23, 42));
     window.draw(marker);
 
-    sf::Text delayTitle(res.font, toSfString("Vėlavimas į paskaitą:"), 15);
-    delayTitle.setFillColor(sf::Color(190, 200, 215));
-    delayTitle.setPosition({34.0f, 144.0f});
+    // Vėlavimo laikmačio kapsulė
+    const sf::Color delayCol = getDelayColor(game.delaySeconds, route.maxDelayMinutes);
+    drawRoundedRect(window, {36.0f, 146.0f}, {272.0f, 76.0f}, 12.0f, COL_PANEL_INNER, 1.5f,
+                    sf::Color(delayCol.r, delayCol.g, delayCol.b, 160));
+
+    sf::Text delayTitle(res.font, toSfString("Vėlavimas į paskaitą (riba " + std::to_string(static_cast<int>(route.maxDelayMinutes)) + ":00)"), 12);
+    delayTitle.setFillColor(COL_TEXT_MUTED);
+    delayTitle.setPosition({48.0f, 154.0f});
     window.draw(delayTitle);
 
-    sf::Text delayValue(res.font, toSfString(formatDelayTime(game.delaySeconds)), 25);
-    delayValue.setStyle(sf::Text::Bold);
-    delayValue.setFillColor(getDelayColor(game.delaySeconds, route.maxDelayMinutes));
-    delayValue.setPosition({34.0f, 168.0f});
-    window.draw(delayValue);
+    drawShadowedText(window, res.font, formatDelayTime(game.delaySeconds) + " min", 28, delayCol, {48.0f, 174.0f}, true);
 
+    // Greičio rodiklis
     const int speedKmh = static_cast<int>(game.currentRoadSpeed * game.speedMultiplier * 0.16f);
-    sf::Text speedText(res.font, toSfString("Greitis: " + std::to_string(speedKmh) + " km/h"), 16);
-    speedText.setFillColor(game.player.greenWaveTimer > 0.0f ? sf::Color(115, 255, 175) : sf::Color(215, 225, 240));
-    speedText.setPosition({34.0f, 212.0f});
-    window.draw(speedText);
+    drawRoundedRect(window, {36.0f, 236.0f}, {272.0f, 50.0f}, 12.0f, COL_PANEL_INNER);
+    sf::Text spdLbl(res.font, toSfString("Greitis:"), 14);
+    spdLbl.setFillColor(COL_TEXT_MUTED);
+    spdLbl.setPosition({50.0f, 252.0f});
+    window.draw(spdLbl);
 
-    sf::Text limitText(res.font, toSfString("Riba: " + std::to_string(static_cast<int>(route.maxDelayMinutes)) + " min (tada studentai išeina)"), 12);
-    limitText.setFillColor(sf::Color(150, 162, 180));
-    limitText.setPosition({34.0f, 244.0f});
-    window.draw(limitText);
+    drawShadowedText(window, res.font, std::to_string(speedKmh) + " km/h", 22,
+                     game.player.greenWaveTimer > 0.0f ? COL_EMERALD : COL_TEXT_MAIN, {146.0f, 247.0f}, true);
 
-    // Žalios bangos aktyvaus laikmačio juostelė
+    // Žalios bangos aktyvaus laikmačio kortelė
     if (game.player.greenWaveTimer > 0.0f) {
-        drawPanelBox(window, {18.0f, 308.0f}, {306.0f, 54.0f}, sf::Color(88, 240, 145));
-        sf::Text gwLabel(res.font, toSfString("ŽALIA BANGA AKTYVI!"), 14);
-        gwLabel.setStyle(sf::Text::Bold);
-        gwLabel.setFillColor(sf::Color(115, 255, 175));
-        gwLabel.setPosition({34.0f, 316.0f});
-        window.draw(gwLabel);
-
+        drawGlassPanel(window, {18.0f, 316.0f}, {308.0f, 58.0f}, COL_EMERALD);
+        drawShadowedText(window, res.font, "ŽALIA BANGA AKTYVI!", 14, COL_EMERALD, {36.0f, 326.0f}, true);
         const float gwRatio = std::clamp(game.player.greenWaveTimer / GREEN_WAVE_DURATION, 0.0f, 1.0f);
-        sf::RectangleShape gwBar({270.0f * gwRatio, 10.0f});
-        gwBar.setPosition({34.0f, 342.0f});
-        gwBar.setFillColor(sf::Color(88, 240, 145));
-        window.draw(gwBar);
+        drawRoundedRect(window, {36.0f, 352.0f}, {272.0f, 10.0f}, 5.0f, sf::Color(24, 34, 56));
+        drawRoundedRect(window, {36.0f, 352.0f}, {std::max(10.0f, 272.0f * gwRatio), 10.0f}, 5.0f, COL_EMERALD);
     }
 
-    // --- DEŠINĖS PUSĖS KORTELĖ: Arto kantrybė, Taškai, Valdymas ---
-    drawPanelBox(window, {956.0f, 18.0f}, {306.0f, 305.0f});
+    // --- DEŠINĖS PUSĖS KORTELĖ: Dėstytojo kantrybė, Taškai, Valdymas ---
+    drawGlassPanel(window, {954.0f, 18.0f}, {308.0f, 314.0f}, COL_GOLD);
 
-    sf::Text headerRight(res.font, toSfString("PAVEŽĖJO BŪSENA"), 17);
-    headerRight.setStyle(sf::Text::Bold);
-    headerRight.setFillColor(sf::Color(150, 195, 255));
-    headerRight.setPosition({972.0f, 30.0f});
-    window.draw(headerRight);
+    drawShadowedText(window, res.font, "PAVEŽĖJO BŪSENA", 15, COL_GOLD, {972.0f, 30.0f}, true);
 
-    sf::Text livesLabel(res.font, toSfString("Arto kantrybė:"), 15);
-    livesLabel.setFillColor(sf::Color::White);
-    livesLabel.setPosition({972.0f, 64.0f});
+    sf::Text livesLabel(res.font, toSfString("Dėstytojo kantrybė:"), 14);
+    livesLabel.setFillColor(COL_TEXT_MUTED);
+    livesLabel.setPosition({972.0f, 58.0f});
     window.draw(livesLabel);
 
     for (int i = 0; i < PLAYER_MAX_LIVES; ++i) {
-        if (res.hasArtasFaces) {
-            const sf::Vector2f iconPos = {974.0f + static_cast<float>(i) * 52.0f, 88.0f};
-            const std::uint8_t alpha = (i < game.player.lives) ? 255 : 48;
-            drawSpriteFit(window, res.artasHappy, iconPos, {40.0f, 40.0f}, alpha);
+        const sf::Vector2f slotPos = {972.0f + static_cast<float>(i) * 56.0f, 82.0f};
+        const bool alive = (i < game.player.lives);
+        if (res.hasLecturerFaces) {
+            sf::CircleShape ring(22.0f);
+            ring.setPosition({slotPos.x - 2.0f, slotPos.y - 2.0f});
+            ring.setFillColor(alive ? sf::Color(0, 214, 125, 45) : sf::Color(30, 41, 59, 120));
+            ring.setOutlineThickness(1.5f);
+            ring.setOutlineColor(alive ? COL_EMERALD : sf::Color(51, 65, 85));
+            window.draw(ring);
+            drawSpriteFit(window, res.lecturerHappy, slotPos, {40.0f, 40.0f}, alive ? 255 : 40);
         } else {
-            sf::RectangleShape lifeBar({76.0f, 18.0f});
-            lifeBar.setPosition({972.0f + static_cast<float>(i) * 86.0f, 96.0f});
-            lifeBar.setFillColor(i < game.player.lives ? sf::Color(231, 76, 60) : sf::Color(55, 60, 70));
-            window.draw(lifeBar);
+            drawRoundedRect(window, slotPos, {44.0f, 22.0f}, 8.0f, alive ? COL_CORAL : sf::Color(35, 45, 65));
         }
     }
 
-    sf::Text scoreText(res.font, toSfString("Taškai: " + std::to_string(game.score)), 22);
-    scoreText.setStyle(sf::Text::Bold);
-    scoreText.setFillColor(sf::Color(248, 214, 96));
-    scoreText.setPosition({972.0f, 142.0f});
-    window.draw(scoreText);
+    // Taškų kapsulė
+    drawRoundedRect(window, {972.0f, 136.0f}, {272.0f, 64.0f}, 12.0f, COL_PANEL_INNER, 1.2f, sf::Color(255, 196, 36, 120));
+    sf::Text scoreLbl(res.font, toSfString("TAŠKAI"), 11);
+    scoreLbl.setStyle(sf::Text::Bold);
+    scoreLbl.setFillColor(COL_TEXT_MUTED);
+    scoreLbl.setPosition({986.0f, 144.0f});
+    window.draw(scoreLbl);
+
+    drawShadowedText(window, res.font, std::to_string(game.score), 26, COL_GOLD, {986.0f, 160.0f}, true);
 
     sf::Text statsText(res.font,
-        toSfString("Aplenktos kliūtys: " + std::to_string(game.dodgedCount) +
-                   "\nKavos: " + std::to_string(game.coffeesCollected) +
+        toSfString("Aplenkta: " + std::to_string(game.dodgedCount) +
+                   "  |  Kavos: " + std::to_string(game.coffeesCollected) +
                    "  |  USB: " + std::to_string(game.usbCollected)),
-        14);
-    statsText.setFillColor(sf::Color(200, 210, 224));
-    statsText.setPosition({972.0f, 180.0f});
+        12);
+    statsText.setFillColor(COL_TEXT_MUTED);
+    statsText.setPosition({974.0f, 210.0f});
     window.draw(statsText);
 
-    sf::Text controlsText(res.font,
-        toSfString("Valdymas:\nA / D arba <- / ->  juostos\nW / S arba ^ / v    greitis\nP / Esc             pauzė\nM                   garsas"),
-        13);
-    controlsText.setFillColor(sf::Color(155, 170, 190));
-    controlsText.setPosition({972.0f, 226.0f});
-    window.draw(controlsText);
+    // Kompaktiški klavišų ženkliukai
+    drawKeyCap(window, res.font, {972.0f, 238.0f}, 72.0f, "WASD", "vairuoti ir greitinti");
+    drawKeyCap(window, res.font, {972.0f, 268.0f}, 72.0f, "P / ESC", "pauzė");
+    drawKeyCap(window, res.font, {972.0f, 298.0f}, 72.0f, "M", "garsas");
 
-    // --- ARTO KALBOS BURBULAS ŠALIA AUTOMOBILIO ---
+    // --- DĖSTYTOJO KALBOS BURBULAS ŠALIA AUTOMOBILIO ---
     drawCarSpeechBubble(window, game, res);
 }
 
 void renderGame(sf::RenderWindow& window, const GameData& game, const GameResources& res) {
-    window.clear(sf::Color(20, 26, 34));
+    window.clear(sf::Color(10, 16, 28));
 
-    // Pasaulio vaizdas su galimu ekrano drebėjimu po avarijos
     const sf::Vector2f baseCenter = {static_cast<float>(WINDOW_WIDTH) * 0.5f, static_cast<float>(WINDOW_HEIGHT) * 0.5f};
     const sf::Vector2f viewSize = {static_cast<float>(WINDOW_WIDTH), static_cast<float>(WINDOW_HEIGHT)};
 
@@ -974,7 +1108,6 @@ void renderGame(sf::RenderWindow& window, const GameData& game, const GameResour
         renderParticles(window, game);
     }
 
-    // Sąsajos (HUD ir meniu) vaizdas visada stabilus (be drebėjimo)
     const sf::View uiView(baseCenter, viewSize);
     window.setView(uiView);
     const sf::Vector2f mousePos = window.mapPixelToCoords(sf::Mouse::getPosition(window), uiView);

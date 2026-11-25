@@ -57,7 +57,7 @@ enum class ObstacleType {
 enum class BonusType {
     Coffee,         // +1 kantrybės (arba +150 tšk.) ir -0.5 min vėlavimo
     GreenWave,      // 3.5 s turbo greitis + imunitetas
-    UsbDrive        // Arto skaidrės: +300 tšk.
+    UsbDrive        // Dėstytojo skaidrės: +300 tšk.
 };
 
 enum class GameOverReason {
@@ -206,7 +206,7 @@ struct GameData {
     float bonusSpawnTimer = 6.5f;
     float ambientMessageTimer = 5.0f;
 
-    // Arto kalbos burbulas ir vizualiniai efektai
+    // Dėstytojo kalbos burbulas ir vizualiniai efektai
     std::string statusMessage;
     float statusMessageTimer = 0.0f;
     float screenFlashTimer = 0.0f;

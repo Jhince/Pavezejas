@@ -36,10 +36,10 @@ struct GameResources {
     bool hasUsb = false;
     sf::Texture usb;
 
-    bool hasArtasFaces = false;
-    sf::Texture artasHappy;
-    sf::Texture artasNeutral;
-    sf::Texture artasAngry;
+    bool hasLecturerFaces = false;
+    sf::Texture lecturerHappy;
+    sf::Texture lecturerNeutral;
+    sf::Texture lecturerAngry;
 
     // Garsai ir muzika
     bool hasClickSound = false;

@@ -4,7 +4,7 @@ Procedūrinio programavimo namų darbo projektas (**C++17 + SFML 3.0.2**, griež
 
 ## Apie žaidimą
 
-Tai 2D *top-down* arkadinis vairavimo žaidimas, kuriame **esi dėstytojo Arto pavežėjas** ir turi nuvežti jį per chaotišką Vilniaus eismą į universitetą neišsekinus Arto kantrybės ir neviršijus pasirinkto maršruto vėlavimo ribos.
+Tai 2D *top-down* arkadinis vairavimo žaidimas, kuriame **esi dėstytojo pavežėjas** ir turi nuvežti jį per chaotišką Vilniaus eismą į universitetą neišsekinus dėstytojo kantrybės ir neviršijus pasirinkto maršruto vėlavimo ribos.
 
 ### Maršrutai
 1. **Antakalnis → Saulėtekis** (Lengvas – 3.0 km, riba 8 min.)
@@ -12,14 +12,14 @@ Tai 2D *top-down* arkadinis vairavimo žaidimas, kuriame **esi dėstytojo Arto p
 3. **Pašilaičiai → Saulėtekis** (Sunkus / piko valanda – 7.0 km, riba 12 min.)
 
 ### Eismo dalyviai ir bonusai
-- **Tavo automobilis (žalias pavežėjas)** – šalia jo kalbos burbule rodomi gyvi Arto komentarai ir emocijos.
+- **Tavo automobilis (žalias pavežėjas)** – šalia jo kalbos burbule rodomi gyvi dėstytojo komentarai ir emocijos.
 - **Įprasti automobiliai** – važiuoja savo eismo juostomis.
 - **Sportiniai automobiliai (`ChaoticDriver`)** – pypia, mirksi posūkiu ir staigiai persirikiuoja.
 - **Vilniaus troleibusai (`Trolleybus`)** – ilgi ir lėti, užima daug vietos.
 - **Paspirtukininkai (`Scooter`)** – siauri, greiti ir vingiuoja juostoje.
 - **Kelio darbai (`Roadworks`)** – stacionarios oranžinės užtvaros.
 - **Bonusai:**
-  - **Kava** – +1 Arto kantrybės (arba +150 tšk.) ir `-0.5 min` vėlavimo.
+  - **Kava** – +1 dėstytojo kantrybės (arba +150 tšk.) ir `-0.5 min` vėlavimo.
   - **Žalia banga** – 3.5 s turbo greitis ir laikinas imunitetas avarijoms.
   - **USB su skaidrėmis** – +300 taškų.
 
@@ -38,14 +38,14 @@ sfml-game/
 ├── assets/
 │   ├── audio/                 # Garso efektai (.wav) ir foninė muzika
 │   ├── fonts/                 # CascadiaCode.ttf (lietuviškos raidės)
-│   └── textures/              # Automobilių, troleibuso, paspirtuko, bonusų ir Arto portretų PNG
+│   └── textures/              # Automobilių, troleibuso, paspirtuko, bonusų ir dėstytojo portretų PNG
 ├── src/
 │   ├── types.hpp              # Konstantos, enum class būsenos ir struct duomenys
 │   ├── resources.hpp/.cpp     # Šrifto, tekstūrų ir garsų įkėlimas (su atsarginiu piešimu)
 │   ├── effects.hpp/.cpp       # Susidūrimo/bonusų dalelės ir ekrano drebėjimas
 │   ├── storage.hpp/.cpp       # Rekordų išsaugojimas faile ir vardo įvesties validacija
 │   ├── game_logic.hpp/.cpp    # Įvestis, maršrutai, judėjimas, kliūtys, bonusai, susidūrimai
-│   ├── renderer.hpp/.cpp      # Kelio, sprites, dalelių, HUD, Arto burbulo ir meniu piešimas
+│   ├── renderer.hpp/.cpp      # Kelio, sprites, dalelių, HUD, dėstytojo burbulo ir meniu piešimas
 │   └── main.cpp               # Pagrindinis ciklas
 ├── CMakeLists.txt             # CMake konfigūracija (automatiškai parsiunčia SFML 3.0.2)
 ├── CMakePresets.json          # x64-debug ir x64-release nustatymai

@@ -170,44 +170,44 @@ std::vector<ButtonRect> getScreenButtons(GameState state) {
 
     switch (state) {
         case GameState::Menu:
-            buttons.push_back({sf::FloatRect({centerX, 345.0f}, {btnW, btnH}), "PRADĖTI (MARŠRUTAI)", 1, sf::Color(39, 155, 92)});
-            buttons.push_back({sf::FloatRect({centerX, 410.0f}, {btnW, btnH}), "REKORDAI (TOP 5)", 2, sf::Color(52, 118, 188)});
-            buttons.push_back({sf::FloatRect({centerX, 475.0f}, {btnW, btnH}), "KAIP ŽAISTI", 3, sf::Color(112, 86, 168)});
-            buttons.push_back({sf::FloatRect({centerX, 540.0f}, {btnW, btnH}), "IŠEITI", 4, sf::Color(158, 56, 56)});
+            buttons.push_back({sf::FloatRect({centerX, 342.0f}, {btnW, btnH}), "PRADĖTI (MARŠRUTAI)", 1, sf::Color(0, 196, 114)});
+            buttons.push_back({sf::FloatRect({centerX, 406.0f}, {btnW, btnH}), "REKORDAI (TOP 5)", 2, sf::Color(37, 99, 235)});
+            buttons.push_back({sf::FloatRect({centerX, 470.0f}, {btnW, btnH}), "KAIP ŽAISTI", 3, sf::Color(124, 58, 237)});
+            buttons.push_back({sf::FloatRect({centerX, 534.0f}, {btnW, btnH}), "IŠEITI", 4, sf::Color(225, 29, 72)});
             break;
 
         case GameState::RouteSelect: {
-            const float cardW = 580.0f;
+            const float cardW = 600.0f;
             const float cardH = 88.0f;
             const float cardX = (static_cast<float>(WINDOW_WIDTH) - cardW) * 0.5f;
-            buttons.push_back({sf::FloatRect({cardX, 200.0f}, {cardW, cardH}), "1. Antakalnis -> Saulėtekis", 10, sf::Color(39, 146, 88)});
-            buttons.push_back({sf::FloatRect({cardX, 306.0f}, {cardW, cardH}), "2. Centras -> Saulėtekis", 11, sf::Color(52, 118, 188)});
-            buttons.push_back({sf::FloatRect({cardX, 412.0f}, {cardW, cardH}), "3. Pašilaičiai -> Saulėtekis", 12, sf::Color(178, 72, 54)});
-            buttons.push_back({sf::FloatRect({centerX, 535.0f}, {btnW, btnH}), "ATGAL Į MENIU", 0, sf::Color(74, 88, 108)});
+            buttons.push_back({sf::FloatRect({cardX, 200.0f}, {cardW, cardH}), "1. Antakalnis -> Saulėtekis", 10, sf::Color(16, 152, 98)});
+            buttons.push_back({sf::FloatRect({cardX, 306.0f}, {cardW, cardH}), "2. Centras -> Saulėtekis", 11, sf::Color(37, 99, 235)});
+            buttons.push_back({sf::FloatRect({cardX, 412.0f}, {cardW, cardH}), "3. Pašilaičiai -> Saulėtekis", 12, sf::Color(217, 56, 72)});
+            buttons.push_back({sf::FloatRect({centerX, 535.0f}, {btnW, btnH}), "ATGAL Į MENIU", 0, sf::Color(30, 41, 59)});
             break;
         }
 
         case GameState::HowToPlay:
         case GameState::HighScores:
-            buttons.push_back({sf::FloatRect({centerX, 580.0f}, {btnW, btnH}), "ATGAL Į MENIU", 0, sf::Color(74, 88, 108)});
+            buttons.push_back({sf::FloatRect({centerX, 580.0f}, {btnW, btnH}), "ATGAL Į MENIU", 0, sf::Color(30, 41, 59)});
             break;
 
         case GameState::Paused:
-            buttons.push_back({sf::FloatRect({centerX, 315.0f}, {btnW, btnH}), "TĘSTI (P / ESC)", 1, sf::Color(39, 155, 92)});
-            buttons.push_back({sf::FloatRect({centerX, 382.0f}, {btnW, btnH}), "PRADĖTI IŠ NAUJO (R)", 2, sf::Color(52, 118, 188)});
-            buttons.push_back({sf::FloatRect({centerX, 449.0f}, {btnW, btnH}), "GRĮŽTI Į MENIU", 0, sf::Color(145, 65, 65)});
+            buttons.push_back({sf::FloatRect({centerX, 315.0f}, {btnW, btnH}), "TĘSTI (P / ESC)", 1, sf::Color(0, 196, 114)});
+            buttons.push_back({sf::FloatRect({centerX, 382.0f}, {btnW, btnH}), "PRADĖTI IŠ NAUJO (R)", 2, sf::Color(37, 99, 235)});
+            buttons.push_back({sf::FloatRect({centerX, 449.0f}, {btnW, btnH}), "GRĮŽTI Į MENIU", 0, sf::Color(225, 29, 72)});
             break;
 
         case GameState::NameInput:
-            buttons.push_back({sf::FloatRect({centerX, 455.0f}, {btnW, btnH}), "IŠSAUGOTI REZULTATĄ", 1, sf::Color(39, 155, 92)});
-            buttons.push_back({sf::FloatRect({centerX, 520.0f}, {btnW, btnH}), "PRALEISTI", 2, sf::Color(86, 98, 116)});
+            buttons.push_back({sf::FloatRect({centerX, 455.0f}, {btnW, btnH}), "IŠSAUGOTI REZULTATĄ", 1, sf::Color(0, 196, 114)});
+            buttons.push_back({sf::FloatRect({centerX, 520.0f}, {btnW, btnH}), "PRALEISTI", 2, sf::Color(30, 41, 59)});
             break;
 
         case GameState::Victory:
         case GameState::GameOver:
-            buttons.push_back({sf::FloatRect({centerX, 455.0f}, {btnW, btnH}), "ŽAISTI IŠ NAUJO", 1, sf::Color(39, 155, 92)});
-            buttons.push_back({sf::FloatRect({centerX, 518.0f}, {btnW, btnH}), "REKORDAI (TOP 5)", 2, sf::Color(52, 118, 188)});
-            buttons.push_back({sf::FloatRect({centerX, 581.0f}, {btnW, btnH}), "GRĮŽTI Į MENIU", 0, sf::Color(74, 88, 108)});
+            buttons.push_back({sf::FloatRect({centerX, 455.0f}, {btnW, btnH}), "ŽAISTI IŠ NAUJO", 1, sf::Color(0, 196, 114)});
+            buttons.push_back({sf::FloatRect({centerX, 518.0f}, {btnW, btnH}), "REKORDAI (TOP 5)", 2, sf::Color(37, 99, 235)});
+            buttons.push_back({sf::FloatRect({centerX, 581.0f}, {btnW, btnH}), "GRĮŽTI Į MENIU", 0, sf::Color(30, 41, 59)});
             break;
 
         default:

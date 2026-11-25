@@ -56,10 +56,10 @@ bool loadResources(GameResources& res) {
         }
     }
 
-    const bool h1 = loadTextureSafe(res.artasHappy, "assets/textures/artas_happy.png");
-    const bool h2 = loadTextureSafe(res.artasNeutral, "assets/textures/artas_neutral.png");
-    const bool h3 = loadTextureSafe(res.artasAngry, "assets/textures/artas_angry.png");
-    res.hasArtasFaces = h1 && h2 && h3;
+    const bool h1 = loadTextureSafe(res.lecturerHappy, "assets/textures/lecturer_happy.png");
+    const bool h2 = loadTextureSafe(res.lecturerNeutral, "assets/textures/lecturer_neutral.png");
+    const bool h3 = loadTextureSafe(res.lecturerAngry, "assets/textures/lecturer_angry.png");
+    res.hasLecturerFaces = h1 && h2 && h3;
 
     // Garso efektai
     res.hasClickSound = loadSoundSafe(res.clickBuffer, "assets/audio/click.wav");
