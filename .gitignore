@@ -1,0 +1,10 @@
+build/
+out/
+.vs/
+.vscode/
+*.user
+*.suo
+*.sln
+*.vcxproj*
+CMakeUserPresets.json
+highscores.txt
