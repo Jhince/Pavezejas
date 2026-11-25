@@ -1,10 +1,11 @@
 #pragma once
 
+#include "resources.hpp"
 #include "types.hpp"
 #include <SFML/Graphics.hpp>
 #include <string>
 
-// Teksto ir mygtukų pagalbinės funkcijos
+// Teksto konvertavimo ir centravimo pagalbinės funkcijos
 sf::String toSfString(const std::string& utf8Text);
 void drawCenteredText(sf::RenderWindow& window,
                       const sf::Font& font,
@@ -15,9 +16,7 @@ void drawCenteredText(sf::RenderWindow& window,
 
 // Pagrindinės piešimo funkcijos
 void renderRoad(sf::RenderWindow& window, const GameData& game);
-void renderEntities(sf::RenderWindow& window, const GameData& game);
-void renderHUD(sf::RenderWindow& window, const GameData& game, const sf::Font& font);
-void renderMenu(sf::RenderWindow& window, const sf::Font& font, sf::Vector2f mousePos);
-void renderPauseOverlay(sf::RenderWindow& window, const sf::Font& font, sf::Vector2f mousePos);
-void renderEndOverlay(sf::RenderWindow& window, const GameData& game, const sf::Font& font, sf::Vector2f mousePos);
-void renderGame(sf::RenderWindow& window, const GameData& game, const sf::Font& font);
+void renderEntities(sf::RenderWindow& window, const GameData& game, const GameResources& res);
+void renderParticles(sf::RenderWindow& window, const GameData& game);
+void renderHUD(sf::RenderWindow& window, const GameData& game, const GameResources& res);
+void renderGame(sf::RenderWindow& window, const GameData& game, const GameResources& res);

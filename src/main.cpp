@@ -1,10 +1,11 @@
 #include "game_logic.hpp"
 #include "renderer.hpp"
+#include "resources.hpp"
+#include "storage.hpp"
 #include "types.hpp"
 
 #include <SFML/Graphics.hpp>
 #include <algorithm>
-#include <iostream>
 
 int main() {
     sf::RenderWindow window(
@@ -13,16 +14,15 @@ int main() {
     );
     window.setFramerateLimit(60);
 
-    // Įkeliame šriftą (su patikrinimu, kad išvengtume tylių klaidų)
-    sf::Font font;
-    if (!font.openFromFile("assets/fonts/CascadiaCode.ttf")) {
-        std::cerr << "Klaida: nepavyko įkelti šrifto 'assets/fonts/CascadiaCode.ttf'!" << std::endl;
+    // Įkeliame šriftą, paveikslėlius ir garsus (su saugiu klaidų apdorojimu)
+    GameResources resources;
+    if (!loadResources(resources)) {
         return 1;
     }
 
     GameData game;
     initScenery(game);
-    resetGame(game);
+    game.highScores = loadHighScores("highscores.txt");
     game.state = GameState::Menu;
 
     sf::Clock frameClock;
@@ -31,9 +31,9 @@ int main() {
         // Apribojame dt (delta time), kad perkeliant langą objektai „neperšoktų“
         const float dt = std::min(frameClock.restart().asSeconds(), 0.05f);
 
-        handleEvents(window, game);
-        updateGame(game, dt);
-        renderGame(window, game, font);
+        handleEvents(window, game, resources);
+        updateGame(game, resources, dt);
+        renderGame(window, game, resources);
     }
 
     return 0;
